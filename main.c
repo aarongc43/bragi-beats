@@ -7,13 +7,13 @@
 
 // number of samples to be processed by FFT
 #define ARRAY_LEN(xs) sizeof(xs)/sizeof(xs[0])
-#define N (1024)
-// input array for FFT
-float in[N];
+// can't go too high becuase the width of the bars will become invisible
+#define N (1<<13)
+// input array for FFT holds the samples for the sound
+float in1[N];
+float in2[N];
 // output array for FFT
 float complex out[N];
-// variable to store the maximum amplitude found in the FFT result
-float pi;
 
 // struct to represent stereo audio frame
 typedef struct {
@@ -40,7 +40,7 @@ void fft(float in[], size_t stride, float complex out[], size_t n) {
     // combine results of recursion
     for (size_t k = 0; k < n/2; ++k) {
         float t = (float)k/n;
-        float complex v = cexp(-2*I*pi*t)*out[k + n/2];
+        float complex v = cexp(-2*I*PI*t)*out[k + n/2];
         float complex e = out[k];
         out[k] = e + v;
         out[k + n/2] = e - v;
@@ -50,36 +50,42 @@ void fft(float in[], size_t stride, float complex out[], size_t n) {
 
 // calculate the amplitude of a complex number as the max of its real and
 // imaginary parts
+// to improve, use vectors on an imaginary plane
+// need to use the magnitude of the vector which will represent the amplitude of
+// the specific frequency
+// direction represents phase
+// length is how intense it is
 float amp(float complex z) {
-    float a = fabsf(crealf(z));
-    float b = fabsf(cimagf(z));
-    if (a < b) return b;
-    return a;
+    float a = crealf(z);
+    float b = cimagf(z);
+    return logf(a*a + b*b);
 }
 
 // process incoming audio frames, applt FFT and update the maximum amplitude
+// receive the samples in this callback periodically
+// grabs a chunk of samples and calls the callback with that chunk
+// push those samples into the input buffer from right to left
+// turning the time domain into the frequency domain when we call fft in the
+// main function
 void callback(void *bufferData, unsigned int frames) {
     // ensure there is always enough frames
     if (frames > N) frames = N;
 
     // cast buffer data to the Frame type
-    Frame *fs = bufferData;
+    float (*fs)[2] = bufferData;
 
     // copy audio data to the input array
     for (size_t i = 0; i < frames; ++i) {
         // only using the left channel for now
-        in[i] = fs[i].left;
+        memmove(in1, in1 + 1, (N-1)*sizeof(in1[0]));
+        in1[N-1] = fs[i][0];
     }
-
-    fft(in, 1, out, N);
 }
 
 int main(void) {
     const int screenWidth = 800;
     const int screenHeight = 800;
     
-    pi = atan2f(1, 1)*4;
-
     InitWindow(screenWidth, screenHeight, "Bragi Beats");
     SetTargetFPS(60);
     InitAudioDevice();
@@ -122,13 +128,16 @@ int main(void) {
             }
         }
 
-        int w = GetRenderWidth();
-        int h = GetRenderHeight();
-
         BeginDrawing();
         ClearBackground((Color){ GetTime()*10.0f, GetTime()*15.0f, GetTime()*20.0f, 255 });
+
+        for (size_t i = 0; i < N; ++i) {
+            float t = (float)i/(N-1);
+            float hann = 0.5 - 0.5*cosf(2*PI*t);
+            in2[i] = in1[i]*hann;
+        }
         
-        fft(in, 1, out, N);
+        fft(in2, 1, out, N);
 
         float max_amp = 0.0f;
         for (size_t i = 0; i < N ; ++i) {
@@ -137,22 +146,24 @@ int main(void) {
         }
         
         float step = 1.06;
+        float lowf = 1.0f;
         size_t m = 0;
-        for (float f = 20.0f; (size_t) f < N; f *= step) {
+        for (float f = lowf; (size_t) f < N/2; f = ceilf(f*step)) {
             m += 1;
         }
 
         float cell_width = (float)screenWidth/m;
         m = 0;
-        for (float f = 20.0f; (size_t) f < N; f *= step) {
-            float f1 = f*step;
+        for (float f = lowf; (size_t) f < N/2; f = ceilf(f*step)) {
+            float f1 = ceilf(f*step);
             float a = 0.0f;
-            for (size_t q = (size_t) f; q < N && q < (size_t) f1; ++q) {
-                a += amp(out[q]);
+            for (size_t q = (size_t) f; q < N/2 && q < (size_t) f1; ++q) {
+                float b = amp(out[q]);
+                if (b > a) a = b;
             }
-            a /= (size_t) f1 - (size_t) f + 1;
+            // a /= (size_t) f1 - (size_t) f + 1;
             float t = a/max_amp;
-            DrawRectangle(m*cell_width, screenHeight/2 - screenHeight/2*t, cell_width, screenHeight/2*t, BLUE);
+            DrawRectangle(m*cell_width, screenHeight - screenHeight/2*t, cell_width, screenHeight/2*t, BLUE);
             m += 1;
         }
 
