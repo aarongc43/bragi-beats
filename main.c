@@ -5,17 +5,14 @@
 #include <math.h>
 #include <string.h>
 
-// macro to calculate the length of an array
+// number of samples to be processed by FFT
 #define ARRAY_LEN(xs) sizeof(xs)/sizeof(xs[0])
-
-// number of samples ot be processed by FFT
-#define N 256
+#define N (1024)
 // input array for FFT
 float in[N];
 // output array for FFT
 float complex out[N];
 // variable to store the maximum amplitude found in the FFT result
-float max_amp;
 float pi;
 
 // struct to represent stereo audio frame
@@ -23,10 +20,6 @@ typedef struct {
     float left;
     float right;
 } Frame;
-
-// void fft(float in[], size_t stride, float complex out[], size_t n);
-// float amp(float complex z);
-// void callback(void *bufferData, unsigned int frames);
 
 // FFT implementaion is recursive and divides the input until bases cases are 
 // reached and then combines the results
@@ -67,7 +60,7 @@ float amp(float complex z) {
 // process incoming audio frames, applt FFT and update the maximum amplitude
 void callback(void *bufferData, unsigned int frames) {
     // ensure there is always enough frames
-    if (frames < N) frames = N;
+    if (frames > N) frames = N;
 
     // cast buffer data to the Frame type
     Frame *fs = bufferData;
@@ -78,55 +71,13 @@ void callback(void *bufferData, unsigned int frames) {
         in[i] = fs[i].left;
     }
 
-    // apply FFT to input array
     fft(in, 1, out, N);
-
-    // find the maximum amplitude in the FFT results
-    max_amp = 0.0001f;
-    for (size_t i = 0; i < frames; ++i) {
-        float a = amp(out[i]);
-        // update max_amp if a larger amplitude is found
-        if (max_amp < a) max_amp = a;
-    }
-}
-
-Color HSVtoRGB(float h, float s, float v) {
-    float r, g, b;
-
-    int i = (int)floor(h * 6);
-    float f = h * 6 - i;
-    float p = v * (1 - s);
-    float q = v * (1 - f * s);
-    float t = v * (1 - (1 - f) * s);
-
-    switch (i % 6) {
-        case 0: r = v, g = t, b = p; break;
-        case 1: r = q, g = v, b = p; break;
-        case 2: r = p, g = v, b = t; break;
-        case 3: r = p, g = q, b = v; break;
-        case 4: r = t, g = p, b = v; break;
-        case 5: r = v, g = p, b = q; break;
-    }
-
-    return (Color){(unsigned char)(r * 255), (unsigned char)(g * 255), (unsigned char)(b * 255), 255};
-}
-
-Color getColorForAmplitude(float amp) {
-    float hue = amp;
-    float saturation = 1.0f;
-    float value = 1.0f;
-    return HSVtoRGB(hue, saturation, value);
-}
-
-float smoothAmplitude (float currentAmp, float previousAmp, float smoothingFactor) {
-    return previousAmp * smoothingFactor + currentAmp * (1 - smoothingFactor);
 }
 
 int main(void) {
     const int screenWidth = 800;
     const int screenHeight = 800;
     
-    float previousAmps[N] = {0};
     pi = atan2f(1, 1)*4;
 
     InitWindow(screenWidth, screenHeight, "Bragi Beats");
@@ -171,31 +122,38 @@ int main(void) {
             }
         }
 
-        BeginDrawing();
-        ClearBackground((Color){ GetTime()*10.0f, GetTime()*15.0f, GetTime()*20.0f, 255 });
-
         int w = GetRenderWidth();
         int h = GetRenderHeight();
-        float cell_width = (float)w / N;
 
+        BeginDrawing();
+        ClearBackground((Color){ GetTime()*10.0f, GetTime()*15.0f, GetTime()*20.0f, 255 });
+        
+        fft(in, 1, out, N);
+
+        float max_amp = 0.0f;
         for (size_t i = 0; i < N ; ++i) {
-            float t = amp(out[i])/max_amp;
-            float currentAmp = amp(out[i]) / max_amp;
+            float a = amp(out[i]);
+            if (max_amp < a) max_amp = a;
+        }
+        
+        float step = 1.06;
+        size_t m = 0;
+        for (float f = 20.0f; (size_t) f < N; f *= step) {
+            m += 1;
+        }
 
-            if (isnan(currentAmp)) {
-                currentAmp = 0;
+        float cell_width = (float)screenWidth/m;
+        m = 0;
+        for (float f = 20.0f; (size_t) f < N; f *= step) {
+            float f1 = f*step;
+            float a = 0.0f;
+            for (size_t q = (size_t) f; q < N && q < (size_t) f1; ++q) {
+                a += amp(out[q]);
             }
-
-            float smoothedAmp = smoothAmplitude(currentAmp, previousAmps[i], 0.5);
-
-            if (isnan(smoothedAmp)) {
-                smoothedAmp = t;
-            }
-            previousAmps[i] = smoothedAmp;
-
-            Color color = getColorForAmplitude(smoothedAmp);
-
-            DrawRectangle(i*cell_width, h/2 - h/2*smoothedAmp, cell_width, h/2*smoothedAmp, color);
+            a /= (size_t) f1 - (size_t) f + 1;
+            float t = a/max_amp;
+            DrawRectangle(m*cell_width, screenHeight/2 - screenHeight/2*t, cell_width, screenHeight/2*t, BLUE);
+            m += 1;
         }
 
         if (musicLoaded) {
