@@ -10,10 +10,11 @@
 // can't go too high becuase the width of the bars will become invisible
 #define N (1<<13)
 // input array for FFT holds the samples for the sound
-float in1[N];
-float in2[N];
+float in_raw[N];
+float in_win[N];
 // output array for FFT
-float complex out[N];
+float complex out_raw[N];
+float  out_log[N];
 
 // struct to represent stereo audio frame
 typedef struct {
@@ -77,8 +78,8 @@ void callback(void *bufferData, unsigned int frames) {
     // copy audio data to the input array
     for (size_t i = 0; i < frames; ++i) {
         // only using the left channel for now
-        memmove(in1, in1 + 1, (N-1)*sizeof(in1[0]));
-        in1[N-1] = fs[i][0];
+        memmove(in_raw, in_raw + 1, (N-1)*sizeof(in_raw[0]));
+        in_raw[N-1] = fs[i][0];
     }
 }
 
@@ -134,37 +135,37 @@ int main(void) {
         for (size_t i = 0; i < N; ++i) {
             float t = (float)i/(N-1);
             float hann = 0.5 - 0.5*cosf(2*PI*t);
-            in2[i] = in1[i]*hann;
+            in_win[i] = in_raw[i]*hann;
         }
         
-        fft(in2, 1, out, N);
-
-        float max_amp = 0.0f;
-        for (size_t i = 0; i < N ; ++i) {
-            float a = amp(out[i]);
-            if (max_amp < a) max_amp = a;
-        }
-        
+        fft(in_win, 1, out_raw, N);
+        // put into a logarithmic scale
         float step = 1.06;
         float lowf = 1.0f;
         size_t m = 0;
-        for (float f = lowf; (size_t) f < N/2; f = ceilf(f*step)) {
-            m += 1;
-        }
+        float max_amp = 1.0f;
 
-        float cell_width = (float)screenWidth/m;
-        m = 0;
         for (float f = lowf; (size_t) f < N/2; f = ceilf(f*step)) {
             float f1 = ceilf(f*step);
             float a = 0.0f;
             for (size_t q = (size_t) f; q < N/2 && q < (size_t) f1; ++q) {
-                float b = amp(out[q]);
+                float b = amp(out_raw[q]);
                 if (b > a) a = b;
             }
-            // a /= (size_t) f1 - (size_t) f + 1;
-            float t = a/max_amp;
-            DrawRectangle(m*cell_width, screenHeight - screenHeight/2*t, cell_width, screenHeight/2*t, BLUE);
-            m += 1;
+            if (max_amp < a) max_amp = a;
+            out_log[m++] = a;
+        }
+
+        // normalize frequencies
+        for (size_t i = 0; i < m; ++i) {
+            out_log[i] /= max_amp;
+        }
+
+        // display frequencies
+        float cell_width = (float)screenWidth/m;
+        for (size_t i = 0; i < m; ++i) {
+            float t = out_log[i];
+            DrawRectangle(i*cell_width, screenHeight - screenHeight*2/3*t, cell_width, screenHeight*2/3*t, BLUE);
         }
 
         if (musicLoaded) {
