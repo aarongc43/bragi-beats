@@ -121,6 +121,11 @@ bool DrawButton(Rectangle bounds, const char* text) {
     return clicked;
 }
 
+void DrawTitleBar() {
+    Rectangle titleBarBounds = {0, 0, GetScreenWidth(), 20};
+    DrawRectangleRec(titleBarBounds, WHITE);
+}
+
 int main(void) {
     const int screenWidth = 800;
     const int screenHeight = 800;
@@ -128,7 +133,7 @@ int main(void) {
     InitWindow(screenWidth, screenHeight, "Bragi Beats");
     SetTargetFPS(60);
 
-    Rectangle buttonBounds = {screenWidth / 2 - 100, screenHeight / 2 - 15, 200, 30};
+    Rectangle buttonBounds = {GetScreenWidth() - 110, 5, 100, 10};
 
     const char *visualizers[] = {"Visualizer 1", "Visualizer 2", "Visualizer 3"};
     int visualizerCount = sizeof(visualizers)/ sizeof(visualizers[0]);
@@ -173,12 +178,14 @@ int main(void) {
             }
         }
 
+        BeginDrawing();
+        ClearBackground((Color){ GetTime()*10.0f, GetTime()*15.0f, GetTime()*20.0f, 255 });
+
+        DrawTitleBar();
+
         if (DrawButton(buttonBounds, "Visualizers")) {
             showList = !showList;
         }
-
-        BeginDrawing();
-        ClearBackground((Color){ GetTime()*10.0f, GetTime()*15.0f, GetTime()*20.0f, 255 });
 
         // iterates over N sized array, size_t is used because array sizes are
         // non-negative
@@ -237,8 +244,22 @@ int main(void) {
         float cell_width = (float)screenWidth/m;
 
         if (showList) {
+            int titleBarheight = 20;
+            int maxVisualizerWidth = 0;
+            int listStartY = titleBarheight + 10;
+
             for (int i = 0; i < visualizerCount; i++) {
-                DrawText(visualizers[i], screenWidth / 2 - MeasureText(visualizers[i], 10) / 2, screenHeight / 2 + 30 + i * 20, 10, DARKGRAY);
+                int width = MeasureText(visualizers[i], 13);
+                if (width > maxVisualizerWidth) {
+                    maxVisualizerWidth = width;
+                }
+            }
+
+            int listItemsX = GetScreenWidth() - maxVisualizerWidth - 10;
+
+            for (int i = 0; i < visualizerCount; i++) {
+                int itemY = listStartY + i * 20;
+                DrawText(visualizers[i], listItemsX, itemY, 10, DARKGRAY);
             }
         }
 
