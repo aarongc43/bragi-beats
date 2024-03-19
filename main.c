@@ -25,6 +25,8 @@ typedef struct {
     float right;
 } Frame;
 
+bool DrawButton(Rectangle bounds, const char* text);
+
 // FFT implementaion is recursive and divides the input until bases cases are 
 // reached and then combines the results
 void fft(float in[], size_t stride, float complex out[], size_t n) {
@@ -93,12 +95,45 @@ void callback(void *bufferData, unsigned int frames) {
     }
 }
 
+bool DrawButton(Rectangle bounds, const char* text) {
+    bool clicked = false;
+    Vector2 mousePoint = GetMousePosition();
+    bool isHovering = CheckCollisionPointRec(mousePoint, bounds);
+
+    if (isHovering) {
+        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+            DrawRectangleRec(bounds, DARKGRAY);
+        }
+        else {
+            DrawRectangleRec(bounds, LIGHTGRAY);
+                if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+                clicked = true;
+            }
+        }
+    } else {
+        DrawRectangleRec(bounds, GRAY);
+    }
+
+    int textWidth = MeasureText(text, 10);
+
+    DrawText(text, bounds.x + (bounds.width / 2) - (textWidth / 2), bounds.y + (bounds.height / 2) - 5, 10, BLACK);
+
+    return clicked;
+}
+
 int main(void) {
     const int screenWidth = 800;
     const int screenHeight = 800;
     
     InitWindow(screenWidth, screenHeight, "Bragi Beats");
     SetTargetFPS(60);
+
+    Rectangle buttonBounds = {screenWidth / 2 - 100, screenHeight / 2 - 15, 200, 30};
+
+    const char *visualizers[] = {"Visualizer 1", "Visualizer 2", "Visualizer 3"};
+    int visualizerCount = sizeof(visualizers)/ sizeof(visualizers[0]);
+    bool showList = false;
+
     InitAudioDevice();
 
     Music music;
@@ -136,6 +171,10 @@ int main(void) {
                     ResumeMusicStream(music);
                 }
             }
+        }
+
+        if (DrawButton(buttonBounds, "Visualizers")) {
+            showList = !showList;
         }
 
         BeginDrawing();
@@ -196,6 +235,12 @@ int main(void) {
 
         // cell width is the screen width divided by the number of bins
         float cell_width = (float)screenWidth/m;
+
+        if (showList) {
+            for (int i = 0; i < visualizerCount; i++) {
+                DrawText(visualizers[i], screenWidth / 2 - MeasureText(visualizers[i], 10) / 2, screenHeight / 2 + 30 + i * 20, 10, DARKGRAY);
+            }
+        }
 
         for (size_t i = 0; i < m; ++i) {
 
