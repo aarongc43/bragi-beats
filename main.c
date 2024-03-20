@@ -23,6 +23,9 @@ typedef struct {
     float right;
 } Frame;
 
+Color OFFWHITE = {236, 235, 243, 255};
+Color CUSTOMDARKGRAY = {46, 53, 50, 255};
+
 void fft(float in[], size_t stride, float complex out[], size_t n);
 void ProcessFFT(float in_raw[], float out_log[], int cneterX, int centerY);
 float amp(float complex z);
@@ -31,6 +34,8 @@ void circleStarVisual(float out_log[], size_t m, int centerX, int centerY);
 bool DrawButton(Rectangle bounds, const char* text);
 void DrawTitleBar();
 void DrawSongQueue();
+void DrawBottomBar(int screenWidth, int screnHeight);
+void DrawProgressBar(Music music, int screenHeight, int screenWidth);
 
 int main(void) {
     InitWindow(screenWidth, screenHeight, "Bragi Beats");
@@ -109,6 +114,10 @@ int main(void) {
             showList = !showList;
         }
 
+        DrawSongQueue();
+        DrawBottomBar(screenWidth, screenHeight);
+        DrawProgressBar(music, screenWidth, screenHeight);
+
         ProcessFFT(in_raw, out_log, centerX, centerY);
 
         if (showList) {
@@ -128,14 +137,14 @@ int main(void) {
             int listItemsX = 18;
             int listBackgroundHeight = visualizerCount * listItemHeight + 10;
 
-            DrawRectangle(listItemsX - 10, listStartY - 10, listWidth, listBackgroundHeight, WHITE);
+            DrawRectangle(listItemsX - 10, listStartY - 10, listWidth, listBackgroundHeight, OFFWHITE);
 
             for (int i = 0; i < visualizerCount; i++) {
                 int itemY = listStartY + i * listItemHeight;
                 int textWidth = MeasureText(visualizers[i], 13);
                 int textX = listItemsX + (listWidth - textWidth) / 2;
 
-                DrawText(visualizers[i], textX, itemY, 10, DARKGRAY);
+                DrawText(visualizers[i], textX, itemY, 10, CUSTOMDARKGRAY);
             }
         }
 
@@ -148,10 +157,13 @@ int main(void) {
 
             DrawText(text, textX, textY, fontSize, LIGHTGRAY);
         } else {
-            DrawText("Drag and Drop a Song to Start Playing", 200, 200, 20, LIGHTGRAY);
+            const char* text = "Drag and Drop a Song to Start Playing";
+            int fontSize = 24;
+            int textWidth = MeasureText(text, fontSize);
+            int textX = 150 + (effectiveScreenWidth - textWidth) / 2;
+            int textY = 20 + (effectiveScreenHeight / 2) - (fontSize / 2);
+            DrawText(text, textX, textY, fontSize, LIGHTGRAY);
         }
-
-        DrawSongQueue();
 
         EndDrawing();
     }
@@ -213,7 +225,7 @@ bool DrawButton(Rectangle bounds, const char* text) {
 
     if (isHovering) {
         if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-            DrawRectangleRec(bounds, DARKGRAY);
+            DrawRectangleRec(bounds, CUSTOMDARKGRAY);
         }
         else {
             DrawRectangleRec(bounds, LIGHTGRAY);
@@ -234,7 +246,7 @@ bool DrawButton(Rectangle bounds, const char* text) {
 
 void DrawTitleBar() {
     Rectangle titleBarBounds = {0, 0, GetScreenWidth(), 20};
-    DrawRectangleRec(titleBarBounds, WHITE);
+    DrawRectangleRec(titleBarBounds, OFFWHITE);
 }
 
 void ProcessFFT(float in_raw[], float out_log[], int centerX, int centerY) {
@@ -304,17 +316,38 @@ void DrawSongQueue() {
     int sidebarX = 0;
     int sidebarY = 20;
 
-    DrawRectangle(sidebarX, sidebarY, sidebarWidth, sidebarHeight, WHITE);
+    DrawRectangle(sidebarX, sidebarY, sidebarWidth, sidebarHeight, OFFWHITE);
 
     int startY = sidebarY + 10;
     int padding = 5;
 
     for (int i = 0; i < songCount; i++) {
         int posY = startY + (i *(20 + padding));
-        DrawText(songTitles[i], sidebarX + 5, startY + (i * (20 + padding)), 10, DARKGRAY);
+        DrawText(songTitles[i], sidebarX + 5, startY + (i * (20 + padding)), 10, CUSTOMDARKGRAY);
 
         if (posY > sidebarY + sidebarHeight - 20) {
             break;
         }
     }
 }
+
+void DrawBottomBar(int screenWidth, int screenHeight) {
+    int bottomBarHeight = 100;
+    Rectangle bottomBarRectangle = {0, screenHeight - bottomBarHeight, screenWidth, bottomBarHeight};
+
+    DrawRectangleRec(bottomBarRectangle, OFFWHITE);
+
+}
+
+void DrawProgressBar(Music music, int screenHeight, int screenWidth) {
+    float songLength = GetMusicTimeLength(music);
+    float currentTime = GetMusicTimePlayed(music);
+    float progress = currentTime / songLength;
+    int progressBarHeight = 20;
+    int progressBarWidth = screenWidth - 200;
+
+    Rectangle progressBarRectangle = {100, screenHeight - 50, progressBarWidth * progress, progressBarHeight};
+    DrawRectangleRec(progressBarRectangle, LIGHTGRAY);
+    DrawRectangleLines(100, screenHeight - 50, progressBarWidth, progressBarHeight, CUSTOMDARKGRAY);
+}
+
