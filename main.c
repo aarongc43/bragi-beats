@@ -9,7 +9,7 @@
 #define N (1<<15)
 #define MAX_SONGS 100
 
-int screenWidth = 800;
+int screenWidth = 1200;
 int screenHeight = 800;
 float in_raw[N];
 float in_win[N];
@@ -31,6 +31,8 @@ void ProcessFFT(float in_raw[], float out_log[], int cneterX, int centerY);
 float amp(float complex z);
 void callback(void *bufferData, unsigned int frames);
 void circleStarVisual(float out_log[], size_t m, int centerX, int centerY);
+void wingVisual(float out_log[], size_t m, int centerX, int centerY);
+void barChartVisual(float out_log[], size_t m);
 bool DrawButton(Rectangle bounds, const char* text);
 void DrawTitleBar();
 void DrawSongQueue();
@@ -99,10 +101,10 @@ int main(void) {
             }
         }
 
-        int effectiveScreenWidth = screenWidth - 150;
+        int effectiveScreenWidth = screenWidth - 200;
         int effectiveScreenHeight = screenHeight - 20 - 100;
 
-        int centerX = 150 + effectiveScreenWidth / 2;
+        int centerX = 200 + effectiveScreenWidth / 2;
         int centerY = 20 + effectiveScreenHeight / 2;
 
         BeginDrawing();
@@ -279,26 +281,27 @@ void ProcessFFT(float in_raw[], float out_log[], int centerX, int centerY) {
     for (size_t i = 0; i < m; ++i) {
         out_log[i] /= max_amp;
     }
+    
+    barChartVisual(out_log, m);
+    //circleStarVisual(out_log, m, centerX, centerY);
+    //wingVisual(out_log, m, centerX, centerY);
 
-    circleStarVisual(out_log, m, centerX, centerY);
-
+    /*Visualizers currently have no button
+    Uncomment visualizer for testing
+    Only one visualizer at a time
+    Overlap occurs otherwise.*/
 }
 
-void circleStarVisual(float out_log[], size_t m, int centerX, int centerY) {
-    float maxRadius = (screenHeight - 20 - 100) / 2;
-    float angleStep = 360.0f / m;
+void barChartVisual(float out_log[], size_t m) {
+    float maxHeight = (screenHeight - 140);
 
     for (size_t i = 0; i < m; ++i) {
 
         float amplitude = out_log[i];
-        float angle = angleStep * i;
-        float lineThickness = 2.0f + (amplitude * 1);
-        float radian = angle * (PI / 180.0f);
+        float lineThickness = 3.0f;
 
-        Vector2 start = { (float)centerX, (float)centerY };
-        Vector2 end = { centerX + cos(radian) * (amplitude * maxRadius),
-            centerY + sin(radian) * (amplitude * maxRadius) };
-
+        Vector2 start = { 210 + 1.7*i + (i * (780 / m)) , 690 };
+        Vector2 end = { 210 + 1.7*i + (i * (780 / m)) , 690 - (amplitude * maxHeight) };
 
         Color color = (Color){(unsigned char)(255 * sin(GetTime())), 128, (unsigned char)(255 * cos(GetTime())), 255};
 
@@ -310,8 +313,61 @@ void circleStarVisual(float out_log[], size_t m, int centerX, int centerY) {
     }
 }
 
+void circleStarVisual(float out_log[], size_t m, int centerX, int centerY) {
+    float maxRadius = (screenHeight - 20 - 100) / 2;
+    float angleStep = 360.0f / m;
+
+    for (size_t i = 0; i < m; ++i) {
+
+        float amplitude = out_log[i];
+        float angle = angleStep * i;
+        float lineThickness = 2.0f;
+        float radian = angle * (PI / 180.0f);
+
+        Vector2 start = { (float)centerX, (float)centerY };
+        Vector2 end = { centerX + cos(radian) * (amplitude * maxRadius),
+            centerY + sin(radian) * (amplitude * maxRadius) };
+
+        Color color = (Color){(unsigned char)(255 * sin(GetTime())), 128, (unsigned char)(255 * cos(GetTime())), 255};
+
+        for (int j = 0; j < 5; j++) { // Example: Simulated glow effect
+            float fadeFactor = (5 - j) / 5.0f; // Decrease opacity
+            Color fadedColor = ColorAlpha(color, fadeFactor);
+            DrawLineEx(start, end, lineThickness * fadeFactor, fadedColor);
+        }
+    }
+}
+
+void wingVisual(float out_log[], size_t m, int centerX, int centerY) {
+    float maxRadius = (screenHeight - 20 - 100) / 2;
+    float angleStep = 180.0f / m;
+
+    for (size_t i = 0; i < m; ++i) {
+
+        float amplitude = out_log[i];
+        float angle = angleStep * i;
+        float lineThickness = 2.0f;
+        float radian = angle * (PI / 180.0f);
+
+        Vector2 start = { (float)centerX, (float)centerY };
+        Vector2 end = { centerX + sin(radian) * (amplitude * maxRadius),
+            centerY + cos(radian) * (amplitude * maxRadius) };
+        Vector2 end2 = { centerX + sin(-radian) * (amplitude * maxRadius),
+            centerY + cos(-radian) * (amplitude * maxRadius) };
+
+        Color color = (Color){(unsigned char)(255 * sin(GetTime())), 128, (unsigned char)(255 * cos(GetTime())), 255};
+
+        for (int j = 0; j < 5; j++) { // Example: Simulated glow effect
+            float fadeFactor = (5 - j) / 5.0f; // Decrease opacity
+            Color fadedColor = ColorAlpha(color, fadeFactor);
+            DrawLineEx(start, end, lineThickness * fadeFactor, fadedColor);
+            DrawLineEx(start, end2, lineThickness * fadeFactor, fadedColor);
+        }
+    }
+}
+
 void DrawSongQueue() {
-    int sidebarWidth = 150;
+    int sidebarWidth = 200;
     int sidebarHeight = 700;
     int sidebarX = 0;
     int sidebarY = 20;
@@ -350,4 +406,3 @@ void DrawProgressBar(Music music, int screenHeight, int screenWidth) {
     DrawRectangleRec(progressBarRectangle, LIGHTGRAY);
     DrawRectangleLines(100, screenHeight - 50, progressBarWidth, progressBarHeight, CUSTOMDARKGRAY);
 }
-
