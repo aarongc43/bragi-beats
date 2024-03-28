@@ -4,10 +4,13 @@
 #include <complex.h>
 #include <math.h>
 #include <string.h>
+#include <mysql.h>
 
 #define ARRAY_LEN(xs) sizeof(xs)/sizeof(xs[0])
-#define N (1<<15)
+#define N (1<<16)
 #define MAX_SONGS 100
+
+// test git
 
 int screenWidth = 1200;
 int screenHeight = 800;
@@ -118,9 +121,9 @@ int main(void) {
 
         DrawSongQueue();
         DrawBottomBar(screenWidth, screenHeight);
-        DrawProgressBar(music, screenWidth, screenHeight);
 
         ProcessFFT(in_raw, out_log, centerX, centerY);
+        DrawProgressBar(music, screenWidth, screenHeight);
 
         if (showList) {
             int titleBarheight = 20;
@@ -285,11 +288,6 @@ void ProcessFFT(float in_raw[], float out_log[], int centerX, int centerY) {
     barChartVisual(out_log, m);
     //circleStarVisual(out_log, m, centerX, centerY);
     //wingVisual(out_log, m, centerX, centerY);
-
-    /*Visualizers currently have no button
-    Uncomment visualizer for testing
-    Only one visualizer at a time
-    Overlap occurs otherwise.*/
 }
 
 void barChartVisual(float out_log[], size_t m) {
@@ -330,11 +328,7 @@ void circleStarVisual(float out_log[], size_t m, int centerX, int centerY) {
 
         Color color = (Color){(unsigned char)(255 * sin(GetTime())), 128, (unsigned char)(255 * cos(GetTime())), 255};
 
-        for (int j = 0; j < 5; j++) { // Example: Simulated glow effect
-            float fadeFactor = (5 - j) / 5.0f; // Decrease opacity
-            Color fadedColor = ColorAlpha(color, fadeFactor);
-            DrawLineEx(start, end, lineThickness * fadeFactor, fadedColor);
-        }
+        DrawLineEx(start, end, lineThickness, color);
     }
 }
 
@@ -404,5 +398,5 @@ void DrawProgressBar(Music music, int screenHeight, int screenWidth) {
 
     Rectangle progressBarRectangle = {100, screenHeight - 50, progressBarWidth * progress, progressBarHeight};
     DrawRectangleRec(progressBarRectangle, LIGHTGRAY);
-    DrawRectangleLines(100, screenHeight - 50, progressBarWidth, progressBarHeight, CUSTOMDARKGRAY);
+    DrawRectangleLines(100, screenHeight - 50, progressBarWidth, progressBarHeight, BLACK);
 }
