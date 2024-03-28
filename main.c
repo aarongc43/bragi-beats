@@ -10,7 +10,6 @@
 #define N (1<<16)
 #define MAX_SONGS 100
 
-// test git
 
 int screenWidth = 1200;
 int screenHeight = 800;
