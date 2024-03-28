@@ -24,7 +24,7 @@ int init_db(void) {
     }
 
   // Establish connection to MySQL server
-    if (!mysql_real_connect(conn, "localhost", "Username", "PasswordHash", "/Users/caseysharp/Desktop/Bragi\ Beats/BragiBeatsDB.sql", 3306, NULL, 0)) {
+    if (!mysql_real_connect(conn, "localhost", "Username", "PasswordHash", "/Users/caseysharp/Desktop/bragi-beats/BragiBeatsDB.sql", 3306, NULL, 0)) {
         fprintf(stderr, "Failed to connect to MySQL server: Error: %s\n", mysql_error(conn));
         mysql_close(conn);
         return 1;
