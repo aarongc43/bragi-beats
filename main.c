@@ -5,100 +5,50 @@
 #include <math.h>
 #include <string.h>
 
-// gets the size of an array
 #define ARRAY_LEN(xs) sizeof(xs)/sizeof(xs[0])
-// can't go too high becuase the width of the bars will become invisible
 #define N (1<<15)
+#define MAX_SONGS 100
 
-// store raw input samples
+int screenWidth = 1200;
+int screenHeight = 800;
 float in_raw[N];
-// windowed input of raw samples
 float in_win[N];
-// stores the output of FFT, magnitude and phase
 float complex out_raw[N];
-// stores the logarithmically calculated values of the FFT
 float  out_log[N];
+char songTitles[MAX_SONGS][256];
+int songCount = 0;
 
-// struct to for stereo audio frames
 typedef struct {
     float left;
     float right;
 } Frame;
 
-// FFT implementaion is recursive and divides the input until bases cases are 
-// reached and then combines the results
-void fft(float in[], size_t stride, float complex out[], size_t n) {
-    // ensure the input size of the array has something in it
-    assert(n > 0);
+Color OFFWHITE = {236, 235, 243, 255};
+Color CUSTOMDARKGRAY = {46, 53, 50, 255};
 
-    // base case: if the array only has one element which is a sample left then
-    // it is done
-    if (n == 1) {
-        out[0] = in[0];
-        return;
-    }
-
-    // fft recusive call to only calculate the even numbered indicies
-    fft(in, stride*2, out, n/2);
-    // fft recursive call to only calculate the odd numbered indicies
-    fft(in + stride, stride*2, out + n/2, n/2);
-
-    // this loop iterates over the first half of the out array. each iteration
-    // combines pairs of elements from the first and second halves of the array
-    for (size_t k = 0; k < n/2; ++k) {
-        // calculate 't', a normalized frequency index for the current element 'k'.
-        float t = (float)k / n;
-
-        // Calculate the complex exponential for the current 'k'.
-        float complex v = cexp(-2 * I * PI * t) * out[k + n / 2];
-
-        // temporarily store the current 'k'th element from the first half of the
-        // 'out' array. It is one of the two elements to be combined
-        float complex e = out[k];
-
-        // the result for the 'k'th position is obtained by adding 'e' and 'v'.
-        // this combines the current element with its paired element from the
-        // second half
-        out[k] = e + v;
-
-        // update the element in the second half of the
-        // 'out' array by subtracting 'v' from 'e'
-        out[k + n / 2] = e - v;
-    }
-}
-
-// calculates the logarithmic amplitude of z
-float amp(float complex z) {
-    float a = crealf(z);
-    float b = cimagf(z);
-    return logf(a*a + b*b);
-}
-
-void callback(void *bufferData, unsigned int frames) {
-    // ensure we don't process more frames than the function can handle
-    if (frames > N) frames = N;
-
-    // bufferData pointer holds incoming audio data
-    // a pointer to an array of two floats
-    float (*fs)[2] = bufferData;
-
-    // iterate over each frame of audio data
-    for (size_t i = 0; i < frames; ++i) {
-        // shifts existing samples one position over, to make room for
-        // new data, like a sliding window across audio data
-        memmove(in_raw, in_raw + 1, (N-1)*sizeof(in_raw[0]));
-        // insert newest sample at the end of the buffer, which keeps the
-        // buffer up to data with the most recent audio data
-        in_raw[N-1] = fs[i][0];
-    }
-}
+void fft(float in[], size_t stride, float complex out[], size_t n);
+void ProcessFFT(float in_raw[], float out_log[], int cneterX, int centerY);
+float amp(float complex z);
+void callback(void *bufferData, unsigned int frames);
+void circleStarVisual(float out_log[], size_t m, int centerX, int centerY);
+void wingVisual(float out_log[], size_t m, int centerX, int centerY);
+void barChartVisual(float out_log[], size_t m);
+bool DrawButton(Rectangle bounds, const char* text);
+void DrawTitleBar();
+void DrawSongQueue();
+void DrawBottomBar(int screenWidth, int screnHeight);
+void DrawProgressBar(Music music, int screenHeight, int screenWidth);
 
 int main(void) {
-    const int screenWidth = 800;
-    const int screenHeight = 800;
-    
     InitWindow(screenWidth, screenHeight, "Bragi Beats");
     SetTargetFPS(60);
+
+    Rectangle buttonBounds = {10, 5, 100, 10};
+
+    const char *visualizers[] = {"Visualizer 1", "Visualizer 2", "Visualizer 3"};
+    int visualizerCount = sizeof(visualizers)/ sizeof(visualizers[0]);
+    bool showList = false;
+
     InitAudioDevice();
 
     Music music;
@@ -121,6 +71,19 @@ int main(void) {
                 SetMusicVolume(music, 0.5f);
                 AttachAudioStreamProcessor(music.stream, callback);
                 musicLoaded = true;
+
+                if (songCount < MAX_SONGS) {
+                    strncpy(songTitles[songCount], GetFileName(droppedFiles.paths[0]), 256);
+                    songTitles[songCount][255] = '\0';
+
+                    char* dot = strrchr(songTitles[songCount], '.');
+                    if (dot != NULL) {
+                        *dot = '\0';
+                    }
+
+                    songCount++;
+                }
+
             }
 
             UnloadDroppedFiles(droppedFiles);
@@ -138,125 +101,75 @@ int main(void) {
             }
         }
 
+        int effectiveScreenWidth = screenWidth - 200;
+        int effectiveScreenHeight = screenHeight - 20 - 100;
+
+        int centerX = 200 + effectiveScreenWidth / 2;
+        int centerY = 20 + effectiveScreenHeight / 2;
+
         BeginDrawing();
         ClearBackground((Color){ GetTime()*10.0f, GetTime()*15.0f, GetTime()*20.0f, 255 });
 
-        // iterates over N sized array, size_t is used because array sizes are
-        // non-negative
-        for (size_t i = 0; i < N; ++i) {
-            // calculates the normalized position of 't'
-            float t = (float)i/(N-1);
-            // applies hann window function to reduce spectral leakage
-            float hann = 0.5 - 0.5*cosf(2*PI*t);
-            // multiplies each sample by the hann value and stores in in_win
-            in_win[i] = in_raw[i]*hann;
+        DrawTitleBar();
+
+        if (DrawButton(buttonBounds, "Visualizers")) {
+            showList = !showList;
         }
-        
-        // perform fft on windowed input and stores in out_raw
-        fft(in_win, 1, out_raw, N);
 
-        // step in 6% increments, increase for low resolution, decrease for
-        // higher resolution
-        float step = 1.05;
-        // initialize the starting frequency
-        float lowf = 1.0f;
-        // counter for logarithmic bins
-        size_t m = 0;
-        // tracker for max amplitude found
-        float max_amp = 1.0f;
+        DrawSongQueue();
+        DrawBottomBar(screenWidth, screenHeight);
+        DrawProgressBar(music, screenWidth, screenHeight);
 
-        // iterates over frequencies on a logarithmic scale
-        // // stops halfway because of patterns, we only need to loop through
-        // half of the frequencies
-        for (float f = lowf; (size_t) f < N/2; f = ceilf(f*step)) {
-            // start at 'f' and stop at 'f1' because this would be one bin and
-            // then go to the next frequency step
-            float f1 = ceilf(f*step);
-            // hold maximum amplitude found in each bin
-            float a = 0.0f;
-            // calculates the amplitudes
-            for (size_t q = (size_t) f; q < N/2 && q < (size_t) f1; ++q) {
-                // b holds the frequency
-                float b = amp(out_raw[q]);
-                // if be is larger then a will be the max amplitude
-                if (b > a) a = b;
+        ProcessFFT(in_raw, out_log, centerX, centerY);
+
+        if (showList) {
+            int titleBarheight = 20;
+            int maxVisualizerWidth = 0;
+            int listStartY = titleBarheight + 10;
+            int listItemHeight = 20;
+
+            for (int i = 0; i < visualizerCount; i++) {
+                int width = MeasureText(visualizers[i], 14);
+                if (width > maxVisualizerWidth) {
+                    maxVisualizerWidth = width;
+                }
             }
 
-            // compare to overall max amplitude of the frequencies
-            if (max_amp < a) max_amp = a;
-            // the max ampltitude in the bin is stored in out_log and m which is
-            // the bin number is incremented
-            out_log[m++] = a;
-        }
+            int listWidth = maxVisualizerWidth + 20;
+            int listItemsX = 18;
+            int listBackgroundHeight = visualizerCount * listItemHeight + 10;
 
-        // normalize frequecies by the max amplitude which will be from 0 to 1
-        for (size_t i = 0; i < m; ++i) {
-            out_log[i] /= max_amp;
-        }
+            DrawRectangle(listItemsX - 10, listStartY - 10, listWidth, listBackgroundHeight, OFFWHITE);
 
-        // cell width is the screen width divided by the number of bins
-        float cell_width = (float)screenWidth/m;
+            for (int i = 0; i < visualizerCount; i++) {
+                int itemY = listStartY + i * listItemHeight;
+                int textWidth = MeasureText(visualizers[i], 13);
+                int textX = listItemsX + (listWidth - textWidth) / 2;
 
-        for (size_t i = 0; i < m; ++i) {
-
-            // using the normalize amplitude values in out_log
-            float t = out_log[i];
-            
-            // DrawRectangle(i*cell_width, screenHeight - screenHeight*2/3*t, cell_width, screenHeight*2/3*t, BLUE);
-            
-            // values for the center of the screen
-            int centerX = screenWidth / 2;
-            int centerY = screenHeight / 2;
-            // max radius of the visualizer
-            float maxRadius = (screenHeight < screenWidth ? screenHeight : screenWidth) / 2;
-
-            // Divide a full circle by the number of bins
-            float angleStep = 360.0f / m;
-
-            // iterate through each bin in out_log
-            for (size_t i = 0; i < m; ++i) {
-
-                // previously calculated amplitude for bin i, normalized
-                float amplitude = out_log[i];
-                // angle in degrees for each bin
-                float angle = angleStep * i;
-
-                // line thickness based on amplitude
-                float lineThickness = 2.0f + (amplitude * 1);
-
-                // convert angle to radians for math functions
-                float radian = angle * (PI / 180.0f);
-
-                // calculate the line's end point based on the amplitude
-                Vector2 start = { (float)centerX, (float)centerY };
-                Vector2 end = { centerX + cos(radian) * (amplitude * maxRadius),
-                                centerY + sin(radian) * (amplitude * maxRadius) };
-
-                // Choose a color based on the amplitude
-                //Color color = (Color){(unsigned char)(255 * amplitude), 128, (unsigned char)(255 * (1 - amplitude)), 255};
-                
-                // smooth color transitions
-                Color color = (Color){(unsigned char)(255 * sin(GetTime())), 128, (unsigned char)(255 * cos(GetTime())), 255};
-
-                for (int j = 0; j < 5; j++) { // Example: Simulated glow effect
-                    float fadeFactor = (5 - j) / 5.0f; // Decrease opacity
-                    Color fadedColor = ColorAlpha(color, fadeFactor);
-                    DrawLineEx(start, end, lineThickness * fadeFactor, fadedColor);
-                }
-
-                // Draw the line from the center to the calculated end point
-                //DrawLineEx(start, end, lineThickness, color);
+                DrawText(visualizers[i], textX, itemY, 10, CUSTOMDARKGRAY);
             }
         }
 
         if (musicLoaded) {
-            DrawText("Playing music...", 10, 10, 20, LIGHTGRAY);
+            const char* text = "Playing music...";
+            int fontSize = 20;
+            int textWidth = MeasureText(text, fontSize);
+            int textX = (screenWidth - textWidth) / 2;
+            int textY = (20 - fontSize) / 2;
+
+            DrawText(text, textX, textY, fontSize, LIGHTGRAY);
         } else {
-            DrawText("Drag and Drop a Song to Start Playing", 200, 200, 20, LIGHTGRAY);
+            const char* text = "Drag and Drop a Song to Start Playing";
+            int fontSize = 24;
+            int textWidth = MeasureText(text, fontSize);
+            int textX = 150 + (effectiveScreenWidth - textWidth) / 2;
+            int textY = 20 + (effectiveScreenHeight / 2) - (fontSize / 2);
+            DrawText(text, textX, textY, fontSize, LIGHTGRAY);
         }
+
         EndDrawing();
     }
-     if (musicLoaded) {
+    if (musicLoaded) {
         UnloadMusicStream(music);
     }
 
@@ -264,4 +177,232 @@ int main(void) {
     CloseWindow();
 
     return 0;
+}
+
+void fft(float in[], size_t stride, float complex out[], size_t n) {
+    assert(n > 0);
+
+    if (n == 1) {
+        out[0] = in[0];
+        return;
+    }
+
+    fft(in, stride*2, out, n/2);
+    fft(in + stride, stride*2, out + n/2, n/2);
+
+    for (size_t k = 0; k < n/2; ++k) {
+        float t = (float)k / n;
+
+        float complex v = cexp(-2 * I * PI * t) * out[k + n / 2];
+
+        float complex e = out[k];
+
+        out[k] = e + v;
+
+        out[k + n / 2] = e - v;
+    }
+}
+
+float amp(float complex z) {
+    float a = crealf(z);
+    float b = cimagf(z);
+    return logf(a*a + b*b);
+}
+
+void callback(void *bufferData, unsigned int frames) {
+    if (frames > N) frames = N;
+
+    float (*fs)[2] = bufferData;
+
+    for (size_t i = 0; i < frames; ++i) {
+        memmove(in_raw, in_raw + 1, (N-1)*sizeof(in_raw[0]));
+        in_raw[N-1] = fs[i][0];
+    }
+}
+
+bool DrawButton(Rectangle bounds, const char* text) {
+    bool clicked = false;
+    Vector2 mousePoint = GetMousePosition();
+    bool isHovering = CheckCollisionPointRec(mousePoint, bounds);
+
+    if (isHovering) {
+        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+            DrawRectangleRec(bounds, CUSTOMDARKGRAY);
+        }
+        else {
+            DrawRectangleRec(bounds, LIGHTGRAY);
+            if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+                clicked = true;
+            }
+        }
+    } else {
+        DrawRectangleRec(bounds, GRAY);
+    }
+
+    int textWidth = MeasureText(text, 10);
+
+    DrawText(text, bounds.x + (bounds.width / 2) - (textWidth / 2), bounds.y + (bounds.height / 2) - 5, 10, BLACK);
+
+    return clicked;
+}
+
+void DrawTitleBar() {
+    Rectangle titleBarBounds = {0, 0, GetScreenWidth(), 20};
+    DrawRectangleRec(titleBarBounds, OFFWHITE);
+}
+
+void ProcessFFT(float in_raw[], float out_log[], int centerX, int centerY) {
+
+    for (size_t i = 0; i < N; ++i) {
+        float t = (float)i/(N-1);
+        float hann = 0.5 - 0.5*cosf(2*PI*t);
+        in_win[i] = in_raw[i]*hann;
+    }
+
+    fft(in_win, 1, out_raw, N);
+
+    float step = 1.05;
+    float lowf = 1.0f;
+    size_t m = 0;
+    float max_amp = 1.0f;
+
+    for (float f = lowf; (size_t) f < N/2; f = ceilf(f*step)) {
+        float f1 = ceilf(f*step);
+        float a = 0.0f;
+        for (size_t q = (size_t) f; q < N/2 && q < (size_t) f1; ++q) {
+            float b = amp(out_raw[q]);
+            if (b > a) a = b;
+        }
+
+        if (max_amp < a) max_amp = a;
+        out_log[m++] = a;
+    }
+
+    for (size_t i = 0; i < m; ++i) {
+        out_log[i] /= max_amp;
+    }
+    
+    barChartVisual(out_log, m);
+    //circleStarVisual(out_log, m, centerX, centerY);
+    //wingVisual(out_log, m, centerX, centerY);
+
+    /*Visualizers currently have no button
+    Uncomment visualizer for testing
+    Only one visualizer at a time
+    Overlap occurs otherwise.*/
+}
+
+void barChartVisual(float out_log[], size_t m) {
+    float maxHeight = (screenHeight - 140);
+
+    for (size_t i = 0; i < m; ++i) {
+
+        float amplitude = out_log[i];
+        float lineThickness = 3.0f;
+
+        Vector2 start = { 210 + 1.7*i + (i * (780 / m)) , 690 };
+        Vector2 end = { 210 + 1.7*i + (i * (780 / m)) , 690 - (amplitude * maxHeight) };
+
+        Color color = (Color){(unsigned char)(255 * sin(GetTime())), 128, (unsigned char)(255 * cos(GetTime())), 255};
+
+        for (int j = 0; j < 5; j++) { // Example: Simulated glow effect
+            float fadeFactor = (5 - j) / 5.0f; // Decrease opacity
+            Color fadedColor = ColorAlpha(color, fadeFactor);
+            DrawLineEx(start, end, lineThickness * fadeFactor, fadedColor);
+        }
+    }
+}
+
+void circleStarVisual(float out_log[], size_t m, int centerX, int centerY) {
+    float maxRadius = (screenHeight - 20 - 100) / 2;
+    float angleStep = 360.0f / m;
+
+    for (size_t i = 0; i < m; ++i) {
+
+        float amplitude = out_log[i];
+        float angle = angleStep * i;
+        float lineThickness = 2.0f;
+        float radian = angle * (PI / 180.0f);
+
+        Vector2 start = { (float)centerX, (float)centerY };
+        Vector2 end = { centerX + cos(radian) * (amplitude * maxRadius),
+            centerY + sin(radian) * (amplitude * maxRadius) };
+
+        Color color = (Color){(unsigned char)(255 * sin(GetTime())), 128, (unsigned char)(255 * cos(GetTime())), 255};
+
+        for (int j = 0; j < 5; j++) { // Example: Simulated glow effect
+            float fadeFactor = (5 - j) / 5.0f; // Decrease opacity
+            Color fadedColor = ColorAlpha(color, fadeFactor);
+            DrawLineEx(start, end, lineThickness * fadeFactor, fadedColor);
+        }
+    }
+}
+
+void wingVisual(float out_log[], size_t m, int centerX, int centerY) {
+    float maxRadius = (screenHeight - 20 - 100) / 2;
+    float angleStep = 180.0f / m;
+
+    for (size_t i = 0; i < m; ++i) {
+
+        float amplitude = out_log[i];
+        float angle = angleStep * i;
+        float lineThickness = 2.0f;
+        float radian = angle * (PI / 180.0f);
+
+        Vector2 start = { (float)centerX, (float)centerY };
+        Vector2 end = { centerX + sin(radian) * (amplitude * maxRadius),
+            centerY + cos(radian) * (amplitude * maxRadius) };
+        Vector2 end2 = { centerX + sin(-radian) * (amplitude * maxRadius),
+            centerY + cos(-radian) * (amplitude * maxRadius) };
+
+        Color color = (Color){(unsigned char)(255 * sin(GetTime())), 128, (unsigned char)(255 * cos(GetTime())), 255};
+
+        for (int j = 0; j < 5; j++) { // Example: Simulated glow effect
+            float fadeFactor = (5 - j) / 5.0f; // Decrease opacity
+            Color fadedColor = ColorAlpha(color, fadeFactor);
+            DrawLineEx(start, end, lineThickness * fadeFactor, fadedColor);
+            DrawLineEx(start, end2, lineThickness * fadeFactor, fadedColor);
+        }
+    }
+}
+
+void DrawSongQueue() {
+    int sidebarWidth = 200;
+    int sidebarHeight = 700;
+    int sidebarX = 0;
+    int sidebarY = 20;
+
+    DrawRectangle(sidebarX, sidebarY, sidebarWidth, sidebarHeight, OFFWHITE);
+
+    int startY = sidebarY + 10;
+    int padding = 5;
+
+    for (int i = 0; i < songCount; i++) {
+        int posY = startY + (i *(20 + padding));
+        DrawText(songTitles[i], sidebarX + 5, startY + (i * (20 + padding)), 10, CUSTOMDARKGRAY);
+
+        if (posY > sidebarY + sidebarHeight - 20) {
+            break;
+        }
+    }
+}
+
+void DrawBottomBar(int screenWidth, int screenHeight) {
+    int bottomBarHeight = 100;
+    Rectangle bottomBarRectangle = {0, screenHeight - bottomBarHeight, screenWidth, bottomBarHeight};
+
+    DrawRectangleRec(bottomBarRectangle, OFFWHITE);
+
+}
+
+void DrawProgressBar(Music music, int screenHeight, int screenWidth) {
+    float songLength = GetMusicTimeLength(music);
+    float currentTime = GetMusicTimePlayed(music);
+    float progress = currentTime / songLength;
+    int progressBarHeight = 20;
+    int progressBarWidth = screenWidth - 200;
+
+    Rectangle progressBarRectangle = {100, screenHeight - 50, progressBarWidth * progress, progressBarHeight};
+    DrawRectangleRec(progressBarRectangle, LIGHTGRAY);
+    DrawRectangleLines(100, screenHeight - 50, progressBarWidth, progressBarHeight, CUSTOMDARKGRAY);
 }
