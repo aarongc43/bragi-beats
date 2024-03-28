@@ -4,7 +4,6 @@ fft.c
 fft_notes.md
 fftw-3.3.10/
 sql
-sql.c
 
 ### C ###
 # Prerequisites
