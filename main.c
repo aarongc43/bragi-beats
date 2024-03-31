@@ -4,7 +4,6 @@
 #include <complex.h>
 #include <math.h>
 #include <string.h>
-#include <mysql.h>
 
 #define ARRAY_LEN(xs) sizeof(xs)/sizeof(xs[0])
 #define N (1<<16)
@@ -122,7 +121,7 @@ int main(void) {
         DrawBottomBar(screenWidth, screenHeight);
 
         ProcessFFT(in_raw, out_log, centerX, centerY);
-        DrawProgressBar(music, screenWidth, screenHeight);
+        // DrawProgressBar(music, screenWidth, screenHeight);
 
         if (showList) {
             int titleBarheight = 20;
