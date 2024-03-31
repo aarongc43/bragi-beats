@@ -6,6 +6,7 @@ fftw-3.3.10/
 sql
 .vscode
 Bragi Beats Code.zip
+build.sh
 
 ### C ###
 # Prerequisites
