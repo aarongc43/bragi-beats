@@ -4,7 +4,6 @@
 #include <complex.h>
 #include <math.h>
 #include <string.h>
-#include <mysql.h>
 
 #define ARRAY_LEN(xs) sizeof(xs)/sizeof(xs[0])
 #define N (1<<15)
