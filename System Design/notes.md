@@ -1,84 +1,50 @@
-# Application Requirements
-
-## Requirements
-
-These are requirements that need to be accessible to the user.
-
-### Level 1
-
-- Drag and Drop music.
-- Music will be loaded into a visual queue
-- Play back controls
-- Visualization Picker
-
-### Level 2 User
-
-- Login Feature for different Users
-- SQL Database for User access
-- SQL database will store library, visualizers.
-- Local Server
-- Saved Music and Library
-- Saved Configurations
-- Library Management
-- More Visualizations
-- Visualization Customizations
-
-
-## Modules
-
-- **Audio Loading** - What audio are we going to be loading, FLAC, MP3, WAV etc.
-
-```C
-loadAudioFile(filename)
-playAudio()
-pauseAudio()
-stopAudio()
-seekAudio(timePosition)
-getAudioVolume()
-setAudioVolume(volume)
-```
-
-- **FFT Analysis** - Custom FFT library, handle frequency binning, buffers for
-  frequency spectrum data for visualizations.
-
-```C
-initFFT(fftSize) // initialize FFT module will be called after drag and drop
-performFFT(inputAudioData, outputSpectrum) // calls FFT functions and stores
-    //frequency amplitudes in an output buffer
-```
-
-- **Visualization Core** - Raylib rendering loop. This will coordinate which visual elements are being implemented
-
-```C
-initBarVisualizer() // data structure for the bar visualizer
-updateBarVisualizer(fftSpectrum) // takes the FFT output and maps amplitudes to
-    //bar heights, positions, colors, etc.
-renderBarVisualizer() // Executes the drawing of bars using raylib functions
-mapValue() // generic function to scale values from one range to another
-```
-
-- **Visualization Types** - What visualizers are we going to be using?
-
-- **User Input** - User input to Play/Pause, order Queue, volume, skip,
-  visualization adjustments like intensity, colors etc.
-
-```C
-createButton(buttonName, position, size)
-isButtonClicked(buttonName)
-createSlider(sliderName, position, size, minVal, maxVal)
-getSliderValue(slidername)
-
-```
-
-- **Configuration and Settings** - Load user's last used visualizers types based on
-  each account created, save library, load metadata and modify that metadata.
-
-# Iterations
-
-## Iteration 1
-
-- Audio Loading
-- FFT Analysis
-- Bar Chart Visualizer
-
-# Testing
+Actors
+User: The primary actor who interacts with the music visualizer application.
+System: Represents the music visualizer application itself, including its components like the music player, visualization engine, and database.
+Use Cases
+1. Authenticate User
+Actor: User
+Description: The user logs into the application using their username and password. The system validates the credentials against the database.
+Steps:
+User opens the application and is prompted to log in.
+User enters username and password.
+System validates the credentials.
+User gains access to the application on successful validation.
+2. Load Music File
+Actor: User
+Description: The user drags and drops a music file into the application. The system loads the file and prepares it for playback.
+Steps:
+User selects a music file and drags it into the application window.
+System verifies the file format and loads the file.
+System updates the user's library with the new song.
+3. Play Music
+Actor: User
+Description: The user plays a selected music file. The system reads the file, processes the audio, and starts playback.
+Steps:
+User selects a song from their library or playlist.
+User presses the play button.
+System processes and plays the music.
+4. Visualize Music
+Actor: System
+Description: As music plays, the system generates and displays visualizations corresponding to the audio output.
+Steps:
+System analyzes the audio data using FFT.
+System generates visualization based on the audio data.
+Visualization is displayed in sync with the music.
+5. Manage Playlists
+Actor: User
+Description: The user creates, updates, or deletes playlists. The system updates the database accordingly.
+Steps:
+User chooses to create a new playlist, add songs to an existing playlist, or delete a playlist.
+System updates the playlists in the database based on user actions.
+6. Adjust Settings
+Actor: User
+Description: The user adjusts application settings, including visualization preferences, audio output settings, and account details.
+Steps:
+User opens the settings menu.
+User makes changes to the settings.
+System applies and saves the new settings.
+Relationships and Extensions
+Load Music File extends Authenticate User, as the user must be authenticated before they can load music files.
+Play Music and Visualize Music are closely related; Visualize Music cannot happen without Play Music.
+Manage Playlists includes adding songs to playlists, where Load Music File is a prerequisite step for adding new songs to the system.
