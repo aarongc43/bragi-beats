@@ -1,22 +1,23 @@
-#include <assert.h>
 #include <stdio.h>
 #include <raylib.h>
 #include <complex.h>
 #include <math.h>
 #include <string.h>
 
+#include "audioProcessing.h"
+#include "globals.h"
+
 #define ARRAY_LEN(xs) sizeof(xs)/sizeof(xs[0])
-#define N (1<<15)
 #define MAX_SONGS 100
 
 int screenWidth = 1200;
 int screenHeight = 1100;
 
-float in_raw[N];
-float in_win[N];
-float complex out_raw[N];
-float  out_log[N];
-float out_smooth[N];
+float in_raw[FFT_SIZE];
+float in_win[FFT_SIZE];
+float complex out_raw[FFT_SIZE];
+float  out_log[FFT_SIZE];
+float out_smooth[FFT_SIZE];
 char songTitles[MAX_SONGS][256];
 int songCount = 0;
 
@@ -51,26 +52,21 @@ bool isPlaying = false;
 Color OFFWHITE = {236, 235, 243, 255};
 Color CUSTOMDARKGRAY = {46, 53, 50, 255};
 
-// audio processing functions
-void fft(float in[], size_t stride, float complex out[], size_t n);
-void ProcessFFT(float in_raw[], float out_log[], float out_smooth[], int centerX, int centerY, Rectangle visualizerSpace);
-float amp(float complex z);
-void callback(void *bufferData, unsigned int frames);
-
-// visualizers
-void circleStarVisual(float out_smooth[], size_t m, int centerX, int centerY);
-void wingVisual(float out_smooth[], size_t m, int centerX, int centerY);
-void barChartVisual(float out_smooth[], size_t m, Rectangle visualizerSpace);
-
-// UI functions
+// UI functions - Presentation Layer
 void DrawUI(Rectangle buttonBounds, bool *showList, int screenWidth, int screenHeight, Rectangle titleBar);
 bool DrawButton(Rectangle bounds, const char* text);
 void DrawTitleBar();
 void DrawSongQueue(Rectangle queue);
 void DrawBottomBar(int screenWidth, int screnHeight);
 void DrawProgressBar(Music music, int screenHeight, int screenWidth);
-void enqueueSong(Music song, const char* title);
 void DrawVisualizerSelection(bool *showList, Rectangle buttonBounds);
+
+// visualizers
+void circleStarVisual(float out_smooth[], size_t m, int centerX, int centerY);
+void wingVisual(float out_smooth[], size_t m, int centerX, int centerY);
+void barChartVisual(float out_smooth[], size_t m, Rectangle visualizerSpace);
+
+void enqueueSong(Music song, const char* title);
 void RenderCurrentVisualizer(float out_smooth[], size_t m, int centerX, int centerY, Rectangle visualizerSpace);
 
 // utility functions
@@ -103,9 +99,13 @@ int main(void) {
 
         BeginDrawing();
         DrawLayout();
-        ProcessFFT(in_raw, out_log, out_smooth, center.centerX, center.centerY, visualizerSpace);
+        ProcessFFT(in_raw, out_log, out_smooth);
         DrawUI(visualizerButtonBounds, &showList, screenWidth, screenHeight, titleBar);
         DrawVisualizerSelection(&showList, visualizerButtonBounds);
+
+        size_t numberFftBins = ProcessFFT(in_raw, out_log, out_smooth);
+        RenderCurrentVisualizer(out_smooth, numberFftBins, center.centerX, center.centerY, visualizerSpace);
+
         EndDrawing();
     }
 
@@ -113,89 +113,6 @@ int main(void) {
     CloseWindow();
 
     return 0;
-}
-
-void fft(float in[], size_t stride, float complex out[], size_t n) {
-    assert(n > 0);
-
-    if (n == 1) {
-        out[0] = in[0];
-        return;
-    }
-
-    fft(in, stride*2, out, n/2);
-    fft(in + stride, stride*2, out + n/2, n/2);
-
-    for (size_t k = 0; k < n/2; ++k) {
-        float t = (float)k / n;
-
-        float complex v = cexp(-2 * I * PI * t) * out[k + n / 2];
-
-        float complex e = out[k];
-
-        out[k] = e + v;
-
-        out[k + n / 2] = e - v;
-    }
-}
-
-float amp(float complex z) {
-    float a = crealf(z);
-    float b = cimagf(z);
-    return logf(a*a + b*b);
-}
-
-void callback(void *bufferData, unsigned int frames) {
-    if (frames > N) frames = N;
-
-    float (*fs)[2] = bufferData;
-
-    for (size_t i = 0; i < frames; ++i) {
-        memmove(in_raw, in_raw + 1, (N-1)*sizeof(in_raw[0]));
-        in_raw[N-1] = fs[i][0];
-    }
-}
-
-void ProcessFFT(float in_raw[], float out_log[], float out_smooth[], int centerX, int centerY, Rectangle visualizerSpace) {
-
-    float dt = GetFrameTime();
-
-    for (size_t i = 0; i < N; ++i) {
-        float t = (float)i/(N-1);
-        float hann = 0.5 - 0.5*cosf(2*PI*t);
-        in_win[i] = in_raw[i]*hann;
-    }
-
-    fft(in_win, 1, out_raw, N);
-
-    float step = 1.05;
-    float lowf = 1.0f;
-    size_t m = 0;
-    float max_amp = 1.0f;
-
-    for (float f = lowf; (size_t) f < N/2; f = ceilf(f*step)) {
-        float f1 = ceilf(f*step);
-        float a = 0.0f;
-        for (size_t q = (size_t) f; q < N/2 && q < (size_t) f1; ++q) {
-            float b = amp(out_raw[q]);
-            if (b > a) a = b;
-        }
-
-        if (max_amp < a) max_amp = a;
-        out_log[m++] = a;
-    }
-
-    for (size_t i = 0; i < m; ++i) {
-        out_log[i] /= max_amp;
-    }
-
-    float smoothness = 7.5f;
-    for (size_t i = 0; i < m; ++i) {
-        out_smooth[i] += (out_log[i] - out_smooth[i]) * smoothness * dt;
-
-    }
-
-    RenderCurrentVisualizer(out_smooth, m, centerX, centerY, visualizerSpace);
 }
 
 void enqueueSong(Music song, const char* title) {
@@ -268,7 +185,6 @@ void barChartVisual(float out_smooth[], size_t m, Rectangle visualizerSpace) {
             DrawLineEx(start, end, lineThickness * fadeFactor, fadedColor);
         }
     }
-
 }
 
 void circleStarVisual(float out_smooth[], size_t m, int centerX, int centerY) {
