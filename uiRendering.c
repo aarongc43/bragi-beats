@@ -5,7 +5,7 @@
 #include "uiRendering.h"
 #include "visualizers.h"
 
-VisualizerCenterPoint CalculateLayout(Rectangle* titleBar, Rectangle* queue, Rectangle* visualizerSpace, Rectangle* playbackBar) {
+VisualizerCenterPoint CalculateLayout(Rectangle* titleBar, Rectangle* queue, Rectangle* visualizerSpace, Rectangle* playbackControlPanel) {
     int screenWidth = GetScreenWidth();
     int screenHeight = GetScreenHeight();
 
@@ -28,25 +28,25 @@ VisualizerCenterPoint CalculateLayout(Rectangle* titleBar, Rectangle* queue, Rec
     center.centerX = visualizerSpace->x + (visualizerSpace->width / 2);
     center.centerY = visualizerSpace->y + (visualizerSpace->height / 2);
 
-    playbackBar->x = 0;
-    playbackBar->y = screenHeight * 0.85;
-    playbackBar->width = screenWidth;
-    playbackBar->height = screenHeight * 0.15;
+    playbackControlPanel->x = 0;
+    playbackControlPanel->y = screenHeight * 0.85;
+    playbackControlPanel->width = screenWidth;
+    playbackControlPanel->height = screenHeight * 0.15;
 
     return center;
 }
 
 void DrawLayout() {
-    Rectangle titleBar, queue, visualizerSpace, playbackBar;
-    CalculateLayout(&titleBar, &queue, &visualizerSpace, &playbackBar);
+    Rectangle titleBar, queue, visualizerSpace, playbackControlPanel;
+    CalculateLayout(&titleBar, &queue, &visualizerSpace, &playbackControlPanel);
 
     DrawRectangleRec(titleBar, OFFWHITE);
     DrawRectangleRec(queue, OFFWHITE);
     DrawSongQueue(queue);
-    DrawRectangleRec(playbackBar, OFFWHITE);
+    DrawRectangleRec(playbackControlPanel, OFFWHITE);
 }
 
-bool DrawButton(Rectangle bounds, const char* text) {
+bool DrawButton(Rectangle bounds, const char* text, int fontSize) {
     bool clicked = false;
     Vector2 mousePoint = GetMousePosition();
     bool isHovering = CheckCollisionPointRec(mousePoint, bounds);
@@ -65,9 +65,9 @@ bool DrawButton(Rectangle bounds, const char* text) {
         DrawRectangleRec(bounds, GRAY);
     }
 
-    int textWidth = MeasureText(text, 10);
+    int textWidth = MeasureText(text, fontSize);
 
-    DrawText(text, bounds.x + (bounds.width / 2) - ((float)textWidth / 2), bounds.y + (bounds.height / 2) - 5, 10, BLACK);
+    DrawText(text, bounds.x + (bounds.width / 2) - ((float)textWidth / 2), bounds.y + (bounds.height / 2) - (fontSize / 2), fontSize, BLACK);
 
     return clicked;
 }
@@ -100,6 +100,48 @@ void DrawSongQueue(Rectangle queue) {
     }
 }
 
+void DrawPlaybackControls(Rectangle playbackControlPanel) {
+    const int buttonHeight = 30;
+    const int buttonWidth = 80;
+    const int spacing = 30;
+
+    float playPauseX = playbackControlPanel.x + (playbackControlPanel.width / 2) - ((float)buttonWidth / 2);
+    float playPauseY = playbackControlPanel.y + (playbackControlPanel.height / 2) - ((float)buttonHeight / 2) - spacing;
+
+    Rectangle playPauseBounds = {playPauseX, playPauseY, buttonWidth, buttonHeight};
+    Rectangle skipBackBounds = {playPauseX - buttonWidth - spacing, playPauseY, buttonWidth, buttonHeight};
+    Rectangle skipForwardBounds = {playPauseX + buttonWidth + spacing, playPauseY, buttonWidth, buttonHeight};
+
+    bool hasSongsInQueue = songQueue.front <= songQueue.rear && songQueue.front != -1;
+
+    if (DrawButton(playPauseBounds, isPlaying ? "Pause" : "Play", 20) && hasSongsInQueue) {
+        isPlaying = !isPlaying;
+        if (isPlaying) {
+            PlayMusicStream(currentMusic);
+        } else {
+            PauseMusicStream(currentMusic);
+        }
+    }
+
+    if (DrawButton(skipBackBounds, "<<", 20) && songQueue.front > 0) {
+        songQueue.front--;
+
+        UnloadMusicStream(currentMusic);
+        currentMusic = songQueue.songs[songQueue.front];
+        PlayMusicStream(currentMusic);
+        isPlaying = true;
+    }
+
+    if (DrawButton(skipForwardBounds, ">>", 20) && songQueue.front < songQueue.rear) {
+        songQueue.front++;
+
+        UnloadMusicStream(currentMusic);
+        currentMusic = songQueue.songs[songQueue.front];
+        PlayMusicStream(currentMusic);
+        isPlaying = true;
+    }
+}
+
 void DrawProgressBar(Music music, int screenHeight, int screenWidth) {
     float songLength = GetMusicTimeLength(music);
     float currentTime = GetMusicTimePlayed(music);
@@ -117,7 +159,7 @@ void DrawProgressBar(Music music, int screenHeight, int screenWidth) {
     DrawRectangleLines(100, screenHeight - 50, progressBarWidth, progressBarHeight, BLACK);
 }
 
-void DrawUI(Rectangle buttonBounds, bool *showList, int screenWidth, int screenHeight, Rectangle titleBar) {
+void DrawUI(Rectangle buttonBounds, bool *showList, int screenWidth, int screenHeight, Rectangle titleBar, Rectangle playbackControlPanel) {
 
     float timeFactor = (sin(GetTime()) + 1.0f) / 2.0f; // Normalize to [0, 1]
     Color backgroundColor = {
@@ -129,7 +171,7 @@ void DrawUI(Rectangle buttonBounds, bool *showList, int screenWidth, int screenH
 
     ClearBackground(backgroundColor);
 
-    if (DrawButton(buttonBounds, "Visualizers")) {
+    if (DrawButton(buttonBounds, "Visualizers", 20)) {
         *showList = !(*showList);
     }
 
@@ -151,6 +193,10 @@ void DrawUI(Rectangle buttonBounds, bool *showList, int screenWidth, int screenH
         int textY = 20 + (screenHeight / 2) - (fontSize / 2);
         DrawText(text, textX, textY, fontSize, CUSTOMDARKGRAY);
     }
+
+    DrawPlaybackControls(playbackControlPanel);
+    DrawProgressBar(currentMusic, screenWidth, screenHeight);
+
 }
 
 void DrawVisualizerSelection(bool *showList, Rectangle buttonBounds) {
@@ -163,7 +209,7 @@ void DrawVisualizerSelection(bool *showList, Rectangle buttonBounds) {
 
         for (int i = 0; i < visualizerCount; i++) {
             Rectangle itemBounds = {buttonBounds.x, listStartY + i * 25, buttonBounds.width, 20};
-            if (DrawButton(itemBounds, visualizerNames[i])) {
+            if (DrawButton(itemBounds, visualizerNames[i], 20)) {
                 currentVisualizer = (VisualizerType)i;
                 *showList = false;
             }

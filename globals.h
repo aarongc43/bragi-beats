@@ -33,6 +33,7 @@ extern float complex out_raw[FFT_SIZE];
 extern float out_log[FFT_SIZE];
 extern float out_smooth[FFT_SIZE];
 
+extern Music currentMusic;
 extern bool isPlaying;
 
 extern Color OFFWHITE;

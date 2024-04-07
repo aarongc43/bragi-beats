@@ -37,7 +37,7 @@ int main(void) {
     SetTargetFPS(60);
 
 
-    Rectangle titleBar, queue, visualizerSpace, playbackBar;
+    Rectangle titleBar, queue, visualizerSpace, playbackControlPanel;
     Rectangle visualizerButtonBounds = {
         .x = 10,
         .y = titleBar.y + (titleBar.height / 2) + 25,
@@ -45,7 +45,7 @@ int main(void) {
         .height = 50
     };
 
-    VisualizerCenterPoint center = CalculateLayout(&titleBar, &queue, &visualizerSpace, &playbackBar);
+    VisualizerCenterPoint center = CalculateLayout(&titleBar, &queue, &visualizerSpace, &playbackControlPanel);
 
     bool showList = false;
 
@@ -57,7 +57,7 @@ int main(void) {
         BeginDrawing();
         DrawLayout();
         ProcessFFT(in_raw, out_log, out_smooth);
-        DrawUI(visualizerButtonBounds, &showList, screenWidth, screenHeight, titleBar);
+        DrawUI(visualizerButtonBounds, &showList, screenWidth, screenHeight, titleBar, playbackControlPanel);
         DrawVisualizerSelection(&showList, visualizerButtonBounds);
 
         size_t numberFftBins = ProcessFFT(in_raw, out_log, out_smooth);
