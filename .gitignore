@@ -9,11 +9,14 @@ build.sh
 Bragi Beats
 Bragi\ Beats\ Code.zip 
 COSC\ 4460_Class\ Exercise\ 2.docx 
+System\ Design
+notes.md
 fft.c 
 fft_notes.md 
 sql.h 
 bragibeats
 .vscode
+.DS_Store
 
 ### C ###
 # Prerequisites
