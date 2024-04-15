@@ -1,7 +1,9 @@
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <math.h>
 
-#include "globals.h"
+#include "../infrastructure/globals.h"
 #include "uiRendering.h"
 #include "visualizers.h"
 
@@ -42,8 +44,39 @@ void DrawLayout() {
 
     DrawRectangleRec(titleBar, OFFWHITE);
     DrawRectangleRec(queue, OFFWHITE);
-    DrawSongQueue(queue);
     DrawRectangleRec(playbackControlPanel, OFFWHITE);
+    if (authorizedUser && showLibrary) {
+        DrawLibrary();
+    } else {
+        DrawSongQueue(queue);
+    }
+}
+
+void DrawLibrary(Rectangle libraryBounds) {
+    int offsetY = 0;
+    int itemHeight = 30;
+    int indentSize = 30;
+
+    for (int i = 0; i < userLibrary.albumCount; i++) {
+        Album *album = &userLibrary.albums[i];
+
+        Rectangle albumBounds = {libraryBounds.x, libraryBounds.y + offsetY, libraryBounds.width, itemHeight};
+
+        if (DrawButton(albumBounds, album->name, 20)) {
+            for (int j = 0; j < album->songCount; j++) {
+                album->expanded = !album->expanded;
+
+                Rectangle songBounds = {libraryBounds.x + indentSize, libraryBounds.y + offsetY, libraryBounds.width - indentSize, itemHeight};
+                DrawText(album->songs[j].name, songBounds.x + 5, songBounds.y + 5, 18, BLACK);
+                offsetY += itemHeight;
+            }
+        }
+    }
+    
+    if (offsetY > libraryBounds.height) {
+        // scrolling mechanism
+    }
+
 }
 
 bool DrawButton(Rectangle bounds, const char* text, int fontSize) {
@@ -112,33 +145,24 @@ void DrawPlaybackControls(Rectangle playbackControlPanel) {
     Rectangle skipBackBounds = {playPauseX - buttonWidth - spacing, playPauseY, buttonWidth, buttonHeight};
     Rectangle skipForwardBounds = {playPauseX + buttonWidth + spacing, playPauseY, buttonWidth, buttonHeight};
 
-    bool hasSongsInQueue = songQueue.front <= songQueue.rear && songQueue.front != -1;
+    bool hasSongInList = currentSong != NULL;
 
-    if (DrawButton(playPauseBounds, isPlaying ? "Pause" : "Play", 20) && hasSongsInQueue) {
-        isPlaying = !isPlaying;
-        if (isPlaying) {
-            PlayMusicStream(currentMusic);
-        } else {
-            PauseMusicStream(currentMusic);
-        }
+    if (DrawButton(playPauseBounds, isPlaying ? "Pause" : "Play", 20) && hasSongInList) {
+        printf("Play/Pause");
+        PlayPause();
+        printf("Play/Pause");
     }
 
-    if (DrawButton(skipBackBounds, "<<", 20) && songQueue.front > 0) {
-        songQueue.front--;
-
-        UnloadMusicStream(currentMusic);
-        currentMusic = songQueue.songs[songQueue.front];
-        PlayMusicStream(currentMusic);
-        isPlaying = true;
+    if (DrawButton(skipBackBounds, "<<", 20) && hasSongInList) {
+        printf("skip backward");
+        SkipBackward();
+        printf("skip backward");
     }
 
-    if (DrawButton(skipForwardBounds, ">>", 20) && songQueue.front < songQueue.rear) {
-        songQueue.front++;
-
-        UnloadMusicStream(currentMusic);
-        currentMusic = songQueue.songs[songQueue.front];
-        PlayMusicStream(currentMusic);
-        isPlaying = true;
+    if (DrawButton(skipForwardBounds, ">>", 20) && hasSongInList) {
+        printf("skip forward");
+        SkipForward();
+        printf("skip forward");
     }
 }
 
@@ -159,9 +183,10 @@ void DrawProgressBar(Music music, int screenHeight, int screenWidth) {
     DrawRectangleLines(100, screenHeight - 50, progressBarWidth, progressBarHeight, BLACK);
 }
 
-void DrawUI(Rectangle buttonBounds, bool *showList, int screenWidth, int screenHeight, Rectangle titleBar, Rectangle playbackControlPanel) {
+void DrawUI(bool *showList, int screenWidth, int screenHeight, Rectangle titleBar, Rectangle playbackControlPanel) {
 
     float timeFactor = (sin(GetTime()) + 1.0f) / 2.0f; // Normalize to [0, 1]
+
     Color backgroundColor = {
         .r = (unsigned char)(OFFWHITE.r + (CUSTOMDARKGRAY.r - OFFWHITE.r) * timeFactor),
         .g = (unsigned char)(OFFWHITE.g + (CUSTOMDARKGRAY.g - OFFWHITE.g) * timeFactor),
@@ -169,13 +194,31 @@ void DrawUI(Rectangle buttonBounds, bool *showList, int screenWidth, int screenH
         .a = 255
     };
 
+    Rectangle visualizerButtonBounds = {
+        .x = 20,
+        .y = titleBar.y + (titleBar.height - 50) / 2,
+        .width = 200,
+        .height = 50
+    };
+
+    Rectangle loginButtonBounds = {
+        .x = visualizerButtonBounds.x + visualizerButtonBounds.width + 20,
+        .y = titleBar.y + (titleBar.height - 50) / 2,
+        .width = 200,
+        .height = 50
+    };
+
     ClearBackground(backgroundColor);
 
-    if (DrawButton(buttonBounds, "Visualizers", 20)) {
+    if (DrawButton(visualizerButtonBounds, "Visualizers", 20)) {
         *showList = !(*showList);
     }
 
-    DrawVisualizerSelection(showList, buttonBounds);
+    if (DrawButton(loginButtonBounds, "Login", 20)) {
+        LoginUser();
+    }
+
+    DrawVisualizerSelection(showList, visualizerButtonBounds);
 
     if (isPlaying) {
         const char* text = "Playing music...";
@@ -202,13 +245,15 @@ void DrawUI(Rectangle buttonBounds, bool *showList, int screenWidth, int screenH
 void DrawVisualizerSelection(bool *showList, Rectangle buttonBounds) {
     const char* visualizerNames[] = {"Bar Chart", "Circle Star", "Wing"};
     int visualizerCount = ARRAY_LEN(visualizerNames);
-    int paddingBetweenButtonAndList = 5;
+    int paddingBetweenButtonAndList = 10;
+    int buttonHeight = 30;
 
     if (*showList) {
         int listStartY = buttonBounds.y + buttonBounds.height + paddingBetweenButtonAndList;
 
         for (int i = 0; i < visualizerCount; i++) {
-            Rectangle itemBounds = {buttonBounds.x, listStartY + i * 25, buttonBounds.width, 20};
+            Rectangle itemBounds = {buttonBounds.x, listStartY + i * (buttonHeight + paddingBetweenButtonAndList), buttonBounds.width, buttonHeight};
+
             if (DrawButton(itemBounds, visualizerNames[i], 20)) {
                 currentVisualizer = (VisualizerType)i;
                 *showList = false;
@@ -231,4 +276,9 @@ void RenderVisualizer(float out_smooth[], size_t m, int centerX, int centerY, Re
         default:
             break;
     }
+}
+
+void LoginUser() {
+    authorizedUser = true;
+    showLibrary = true;
 }

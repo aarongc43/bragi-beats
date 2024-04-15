@@ -1,5 +1,5 @@
 #include "audioProcessing.h"
-#include "globals.h"
+#include "../infrastructure/globals.h"
 
 #include <complex.h>
 #include <math.h>
