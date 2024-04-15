@@ -1,4 +1,4 @@
-#include "globals.h"
+#include "../infrastructure/globals.h"
 #include "visualizers.h"
 
 #include <raylib.h>

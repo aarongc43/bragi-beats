@@ -15,6 +15,17 @@ typedef struct {
     int front, rear;
 } SongQueue;
 
+typedef struct SongNode {
+    Music song;
+    char title[256];
+    struct SongNode* next;
+    struct SongNode* prev;
+} SongNode;
+
+extern SongNode* currentSong;
+extern SongNode* prevSong;
+extern SongNode* nextSong;
+
 extern SongQueue songQueue;
 
 typedef enum {
@@ -34,9 +45,36 @@ extern float out_log[FFT_SIZE];
 extern float out_smooth[FFT_SIZE];
 
 extern Music currentMusic;
+extern Music previousMusic;
 extern bool isPlaying;
 
 extern Color OFFWHITE;
 extern Color CUSTOMDARKGRAY;
+
+extern bool authorizedUser;
+extern bool showLibrary;
+
+typedef struct Song {
+    char name[256];
+    struct Song *next;
+} Song;
+
+typedef struct Album {
+    char name[256];
+    Song* songs;
+    struct Album *next;
+    int songCount;
+    bool expanded;
+} Album;
+
+typedef struct {
+    Album *albums;
+    int albumCount;
+} Library;
+
+Library userLibrary;
+
+void SkipForward();
+void SkipBackward();
 
 #endif
