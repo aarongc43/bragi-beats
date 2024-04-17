@@ -47,6 +47,7 @@ extern float out_smooth[FFT_SIZE];
 extern Music currentMusic;
 extern Music previousMusic;
 extern bool isPlaying;
+extern bool showList;
 
 extern Color OFFWHITE;
 extern Color CUSTOMDARKGRAY;

@@ -12,8 +12,15 @@ typedef struct {
     int centerY;
 } VisualizerCenterPoint;
 
-VisualizerCenterPoint CalculateLayout(Rectangle* titleBar, Rectangle* queue, Rectangle* visualizerSpace, Rectangle* playbackBar);
-void DrawUI(bool *showList, int screenWidth, int screenHeight, Rectangle titleBar, Rectangle playbackControlPanel);
+typedef struct {
+    Rectangle titleBar;
+    Rectangle queue;
+    Rectangle visualizerSpace;
+    Rectangle playbackControlPanel;
+    Rectangle library;
+    VisualizerCenterPoint center;
+} Layout;
+
 void RenderVisualizer(float out_smooth[], size_t numberFftBins, int centerX, int centerY, Rectangle visualizerSpace);
 bool DrawButton(Rectangle bounds, const char* text, int fontSize);
 void DrawTitleBar();
@@ -21,11 +28,13 @@ void DrawSongQueue(Rectangle queue);
 void DrawBottomBar(int screenWidth, int screnHeight);
 void DrawProgressBar(Music music, int screenHeight, int screenWidth);
 void DrawVisualizerSelection(bool *showList, Rectangle buttonBounds);
-void DrawLayout();
 void DrawLibrary(Rectangle libraryBounds);
 void LoginUser();
-
+void DrawLibraryOrQueue(Layout layout);
 void DrawPlaybackControls(Rectangle playbackControlPanel);
+Layout CalculateLayout(int screenWidth, int screenHeight);
+void DrawUI(Layout layout);
+
 
 void PlayPause();
 
