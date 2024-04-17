@@ -12,7 +12,7 @@
 #include "../persistence/libraryInitialization.h"
 
 int screenWidth = 1200;
-int screenHeight = 1100;
+int screenHeight = 900;
 
 Color OFFWHITE = {236, 235, 243, 255};
 Color CUSTOMDARKGRAY = {46, 53, 50, 255};
@@ -36,6 +36,7 @@ Music currentMusic;
 Music previousMusic;
 int currentSongIndex = -1;
 bool isPlaying = false;
+bool showList = false;
 
 VisualizerType currentVisualizer = VISUALIZER_BAR_CHART;
 
@@ -59,24 +60,17 @@ int main(void) {
     InitWindow(screenWidth, screenHeight, "Bragi Beats");
     SetTargetFPS(60);
 
-
-    Rectangle titleBar, queue, visualizerSpace, playbackControlPanel;
-    VisualizerCenterPoint center = CalculateLayout(&titleBar, &queue, &visualizerSpace, &playbackControlPanel);
-
-    bool showList = false;
+    Layout layout = CalculateLayout(screenWidth, screenHeight);
 
     InitAudioDevice();
 
-    while(!WindowShouldClose()) {
+
+   while(!WindowShouldClose()) {
         processDroppedFiles();
 
-        BeginDrawing();
-        DrawLayout();
         size_t numberFftBins = ProcessFFT(in_raw, out_log, out_smooth);
-        DrawUI(&showList, screenWidth, screenHeight, titleBar, playbackControlPanel);
-        RenderVisualizer(out_smooth, numberFftBins, center.centerX, center.centerY, visualizerSpace);
-
-        EndDrawing();
+        DrawUI(layout);
+        RenderVisualizer(out_smooth, numberFftBins, layout.center.centerX, layout.center.centerY, layout.visualizerSpace);
     }
 
     CloseAudioDevice();
@@ -104,10 +98,10 @@ void enqueueSong(Music song, const char* title) {
     }
 
     if (!isPlaying) {
-        currentSong = head;
-        PlayMusicStream(currentSong->song);
-        SetMusicVolume(currentSong->song, 0.5f);
-        AttachAudioStreamProcessor(currentSong->song.stream, callback);
+        currentSong = newNode;
+        PlayMusicStream(newNode->song);
+        SetMusicVolume(newNode->song, 0.5f);
+        AttachAudioStreamProcessor(newNode->song.stream, callback);
         isPlaying = true;
     }
 }
