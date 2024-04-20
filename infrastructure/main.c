@@ -51,7 +51,7 @@ bool showLibrary = false;
 
 Library userLibrary = {NULL, 0};
 
-void enqueueSong(Music song, const char* title);
+void enqueueSong(Music song, const char* title, const char* fullPath);
 void PlayNextSongInQueue();
 void processDroppedFiles();
 void playSong(SongNode *song);
@@ -85,11 +85,12 @@ int main(void) {
     return 0;
 }
 
-void enqueueSong(Music song, const char* title) {
+void enqueueSong(Music song, const char* title, const char* fullPath) {
     SongNode* newNode = (SongNode*)malloc(sizeof(SongNode));
     newNode->song = song;
     strncpy(newNode->title, title, sizeof(newNode->title) - 1);
     newNode->title[sizeof(newNode->title) - 1] = '\0';
+    strcpy(newNode->fullPath, fullPath);
     newNode->next = NULL;
     newNode->prev = tail;
     
@@ -135,7 +136,8 @@ void processDroppedFiles() {
                 Music song = LoadMusicStream(droppedFiles.paths[i]);
                 if (song.ctxData != NULL) {
                     const char* title = GetFileName(droppedFiles.paths[i]);
-                    enqueueSong(song, title);
+                    const char* fullPath = droppedFiles.paths[i];
+                    enqueueSong(song, title, fullPath);
 
                 }
             }
@@ -174,35 +176,40 @@ void PlayPause() {
 }
 
 void SkipForward() {
+    printf("Attempting to skip forward from song: %s\n", currentSong ? currentSong->title : "None");
     if (currentSong && currentSong->next) {
         UnloadMusicStream(currentSong->song);
         currentSong = currentSong->next;
-        PlayMusicStream(currentSong->song);
-        SetMusicVolume(currentSong->song, 0.5f);
-        AttachAudioStreamProcessor(currentSong->song.stream, callback);
+        currentSong->song = LoadMusicStream(currentSong->fullPath);
+
+        if (currentSong->song.stream.buffer != NULL) {
+            PlayMusicStream(currentSong->song);
+            SetMusicVolume(currentSong->song, 0.5f);
+            AttachAudioStreamProcessor(currentSong->song.stream, callback);
+            printf("Skipped forward to: %s\n", currentSong->title);
+        } else {
+            printf("Error: Failed to load song stream for: %s\n", currentSong->title);
+        }
+    } else {
+        printf("Cannot skip forward: No next song or stream load failed.\n");
     }
 }
 
 void SkipBackward() {
     if (currentSong && currentSong->prev) {
         printf("SkipBackward() - Current song: %s\n", currentSong->title);
-        UnloadMusicStream(currentSong->song);  // Correctly unload the current song
+        UnloadMusicStream(currentSong->song);  // Unload the current song
+
         currentSong = currentSong->prev;
-
-        char fullPath[1024];  // Ensure the path is complete and correct
-        sprintf(fullPath, "/path/to/music/directory/%s", currentSong->title);
-
-        if (access(fullPath, F_OK) != -1) {  // Check if file exists
-            currentSong->song = LoadMusicStream(fullPath);
-            if (currentSong->song.stream.buffer != NULL) {
-                PlayMusicStream(currentSong->song);
-                SetMusicVolume(currentSong->song, 0.5f);
-                AttachAudioStreamProcessor(currentSong->song.stream, callback);
-            } else {
-                printf("Error: Failed to load the previous song stream.\n");
-            }
+        
+        printf("Loading previous song: %s\n", currentSong->title);
+        currentSong->song = LoadMusicStream(currentSong->fullPath);
+        if (currentSong->song.stream.buffer != NULL) {
+            PlayMusicStream(currentSong->song);
+            SetMusicVolume(currentSong->song, 0.5f);
+            AttachAudioStreamProcessor(currentSong->song.stream, callback);
         } else {
-            printf("Error: File does not exist [%s]\n", fullPath);
+            printf("Error: Failed to load the previous song stream.\n");
         }
     } else {
         printf("No previous song to play or failed to load song.\n");
