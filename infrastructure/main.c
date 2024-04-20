@@ -272,3 +272,8 @@ bool IsDirectory(const char *path) {
         return S_ISDIR(statbuf.st_mode);
     #endif
 }
+
+void LoginUser() {
+    authorizedUser = true;
+    showLibrary = true;
+}

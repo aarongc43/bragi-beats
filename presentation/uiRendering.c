@@ -55,6 +55,7 @@ void DrawLibraryOrQueue(Layout layout) {
         DrawSongQueue(layout.queue);
     }
 }
+
 void DrawLibrary(Rectangle libraryBounds) {
     printf("Drawing Library");
     int offsetY = 0;
@@ -272,9 +273,4 @@ void RenderVisualizer(float out_smooth[], size_t numberOfFftBins, int centerX, i
         default:
             break;
     }
-}
-
-void LoginUser() {
-    authorizedUser = true;
-    showLibrary = true;
 }
