@@ -35,7 +35,6 @@ void DrawPlaybackControls(Rectangle playbackControlPanel);
 Layout CalculateLayout(int screenWidth, int screenHeight);
 void DrawUI(Layout layout);
 
-
 void PlayPause();
 
 #endif

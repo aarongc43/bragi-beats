@@ -22,12 +22,12 @@ Layout CalculateLayout(int screenWidth, int screenHeight) {
 bool DrawButton(Rectangle bounds, const char* text, int fontSize) {
     Vector2 mousePoint = GetMousePosition();
     bool isHovering = CheckCollisionPointRec(mousePoint, bounds);
-    bool clicked = false;
+    bool isPressed = false;
 
     if (isHovering) {
         DrawRectangleRec(bounds, IsMouseButtonDown(MOUSE_BUTTON_LEFT) ? CUSTOMDARKGRAY : LIGHTGRAY);
-        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-            clicked = true;
+        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+            isPressed = true;
         }
     } else {
         DrawRectangleRec(bounds, GRAY);
@@ -35,7 +35,8 @@ bool DrawButton(Rectangle bounds, const char* text, int fontSize) {
 
     int textWidth = MeasureText(text, fontSize);
     DrawText(text, bounds.x + (bounds.width / 2) - ((float)textWidth / 2), bounds.y + (bounds.height / 2) - (fontSize / 2), fontSize, BLACK);
-    return clicked;
+
+    return isPressed; 
 }
 
 void DrawTextCentered(const char* text, Rectangle bounds, int fontSize, Color color) {
@@ -106,8 +107,6 @@ void DrawSongQueue(Rectangle queue) {
 
     for (int i = songQueue.front; i <= songQueue.rear && i < songQueue.front + maxSongsVisible; i++) {
         int posY = startY + ((i - songQueue.front) * (20 + padding));
-        char songTitle[256];
-        strcpy(songTitle, GetFileName(songQueue.titles[songIndex]));
         int fontSize = 12;
 
         DrawText(songQueue.titles[i], sidebarX + 5, posY, fontSize, CUSTOMDARKGRAY);
@@ -138,48 +137,19 @@ void DrawPlaybackControls(Rectangle playbackControlPanel) {
         if (DrawButton(playPauseBounds, isPlaying ? "Pause" : "Play", 20) && hasSongInList) {
             printf("Play/Pause");
             PlayPause();
-            printf("Play/Pause");
         }
 
         if (DrawButton(skipBackBounds, "<<", 20) && hasSongInList) {
             printf("skip backward");
             SkipBackward();
-            printf("skip backward");
         }
 
         if (DrawButton(skipForwardBounds, ">>", 20) && hasSongInList) {
             printf("skip forward");
             SkipForward();
-            printf("skip forward");
         }
     }
 }
-
-/*
-void DrawProgressBar(Music music, int screenHeight, int screenWidth) {
-    printf("Drawing Progress Bar\n");
-    printf("Music pointer: %p\n", (void*)&music);
-
-    float songLength = GetMusicTimeLength(music);
-    float currentTime = GetMusicTimePlayed(music);
-    float progress = currentTime / songLength;
-    int progressBarHeight = 20;
-    int progressBarWidth = screenWidth - 200;
-
-    float progressBarActualWidth = progressBarWidth * progress;
-    float minProgressBarWidth = 5.0f;
-
-    progressBarActualWidth = (progressBarActualWidth < minProgressBarWidth) ? minProgressBarWidth : progressBarActualWidth;
-
-    Rectangle progressBarRectangle = {100, screenHeight - 50, progressBarActualWidth, progressBarHeight};
-
-    printf("Progress: %f, Song Length: %f, Current Time: %f\n", progress, songLength, currentTime);
-    printf("Progress Bar Width: %f, Actual Width: %f, Screen Height: %d\n", progressBarWidth, progressBarActualWidth, screenHeight);
-
-    DrawRectangleRec(progressBarRectangle, LIGHTGRAY);
-    DrawRectangleLines(100, screenHeight - 50, progressBarWidth, progressBarHeight, BLACK);
-}
-*/
 
 void DrawProgressBar(Music music, int screenHeight, int screenWidth) {
     if (music.stream.buffer == NULL) return;  // Ensure there's a song loaded
@@ -288,16 +258,16 @@ void DrawVisualizerSelection(bool *showList, Rectangle buttonBounds) {
     }
 }
 
-void RenderVisualizer(float out_smooth[], size_t m, int centerX, int centerY, Rectangle visualIzerSpace) {
+void RenderVisualizer(float out_smooth[], size_t numberOfFftBins, int centerX, int centerY, Rectangle visualIzerSpace) {
     switch (currentVisualizer) {
         case VISUALIZER_BAR_CHART:
-            barChartVisual(out_smooth, m, visualIzerSpace);
+            barChartVisual(out_smooth, numberOfFftBins, visualIzerSpace);
             break;
         case VISUALIZER_CIRCLE_STAR:
-            circleStarVisual(out_smooth, m, centerX, centerY);
+            circleStarVisual(out_smooth, numberOfFftBins, centerX, centerY);
             break;
         case VISUALIZER_WING:
-            wingVisual(out_smooth, m, centerX, centerY);
+            wingVisual(out_smooth, numberOfFftBins, centerX, centerY);
             break;
         default:
             break;
