@@ -78,4 +78,6 @@ Library userLibrary;
 void SkipForward();
 void SkipBackward();
 
+void LoginUser();
+
 #endif
