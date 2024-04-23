@@ -33,6 +33,7 @@ void DrawLibraryOrQueue(Layout layout);
 void DrawPlaybackControls(Rectangle playbackControlPanel);
 Layout CalculateLayout(int screenWidth, int screenHeight);
 void DrawUI(Layout layout);
+void DrawTextBox(Rectangle textBoxBounds, char* text, int maxLength, bool* isActive);
 
 void PlayPause();
 

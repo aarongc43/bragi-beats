@@ -26,6 +26,7 @@ typedef struct SongNode {
 extern SongNode* currentSong;
 extern SongNode* prevSong;
 extern SongNode* nextSong;
+extern SongNode* head;
 
 extern SongQueue songQueue;
 
@@ -57,6 +58,9 @@ extern Color CUSTOMDARKGRAY;
 
 extern bool authorizedUser;
 extern bool showLibrary;
+extern bool loginActive;
+extern char username[256];
+extern int letterCount;
 
 typedef struct Song {
     char name[256];
