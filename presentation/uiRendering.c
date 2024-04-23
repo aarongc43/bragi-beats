@@ -36,7 +36,7 @@ bool DrawButton(Rectangle bounds, const char* text, int fontSize) {
     int textWidth = MeasureText(text, fontSize);
     DrawText(text, bounds.x + (bounds.width / 2) - ((float)textWidth / 2), bounds.y + (bounds.height / 2) - (fontSize / 2), fontSize, BLACK);
 
-    return isPressed; 
+    return isPressed;
 }
 
 void DrawTextCentered(const char* text, Rectangle bounds, int fontSize, Color color) {

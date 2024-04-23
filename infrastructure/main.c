@@ -111,7 +111,6 @@ void enqueueSong(Music song, const char* title, const char* fullPath) {
         AttachAudioStreamProcessor(newNode->song.stream, callback);
         isPlaying = true;
     }
-    
     if (songQueue.rear == MAX_SONGS - 1) {
         printf("Queue Full\n");
     } else {
@@ -138,7 +137,6 @@ void processDroppedFiles() {
                     const char* title = GetFileName(droppedFiles.paths[i]);
                     const char* fullPath = droppedFiles.paths[i];
                     enqueueSong(song, title, fullPath);
-
                 }
             }
         }
@@ -266,7 +264,6 @@ void processAlbumDirectory(const char *albumPath, const char *albumName) {
 
 bool IsDirectory(const char *path) {
     struct stat statbuf;
-
     #ifdef _WIN32 
         if (_stat(path, &statbuf) != 0) {
         return false;

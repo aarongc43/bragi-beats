@@ -81,3 +81,35 @@ void wingVisual(float out_smooth[], size_t m, int centerX, int centerY) {
     }
 }
 
+void kaleidoscopeVisual(float out_smooth[], size_t m, int centerX, int centerY) {
+    float maxRadius = ((float)screenHeight - 40 - 100) / 2;
+    float angleStep = 180.0f / m;
+
+    for (size_t i = 0; i < m; ++i) {
+
+        float amplitude = out_smooth[i];
+        float angle = angleStep * i;
+        float radian = angle * (PI / 180.0f);
+
+        int endX1 = { centerX + sin(radian*i) * maxRadius };
+        int endX2 = { centerX + sin(-radian*i) * maxRadius };
+        int endX1A ={ centerX + 0.5*(sin(radian*i) * maxRadius) };
+        int endX2A = { centerX + 0.5*(sin(-radian*i) * maxRadius) };
+
+        int endY1 = { centerY + cos(radian*i) * maxRadius };
+        int endY2 = { centerY + cos(-radian*i) * maxRadius };
+        int endY1A = { centerY + 0.5*(-cos(radian*i) * maxRadius) };
+        int endY2A = { centerY + 0.5*(-cos(-radian*i) * maxRadius) };
+
+        Color color = (Color){(unsigned char)(255 * sin(GetTime())), 128, (unsigned char)(255 * cos(GetTime())), 255};
+
+        for (int j = 0; j < 5; j++) { // Example: Simulated glow effect
+            float fadeFactor = (5 - j) / 5.0f; // Decrease opacity
+            Color fadedColor = ColorAlpha(color, fadeFactor);
+            DrawCircleLines(endX1, endY1, amplitude * 0.25*maxRadius, fadedColor);
+            DrawCircleLines(endX2, endY2, amplitude * 0.25*maxRadius, fadedColor);
+            DrawCircleLines(endX1A, endY1A, amplitude * 0.2*maxRadius, fadedColor);
+            DrawCircleLines(endX2A, endY2A, amplitude * 0.2*maxRadius, fadedColor);
+        }
+    }
+}

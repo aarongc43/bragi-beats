@@ -31,8 +31,10 @@ extern SongQueue songQueue;
 
 typedef enum {
     VISUALIZER_BAR_CHART,
+    VISUALIZER_CIRCLE,
     VISUALIZER_CIRCLE_STAR,
-    VISUALIZER_WING
+    VISUALIZER_WING,
+    VISUALIZER_KALEIDOSCOPE
 } VisualizerType;
 
 extern VisualizerType currentVisualizer;
@@ -80,5 +82,4 @@ void SkipForward();
 void SkipBackward();
 
 void LoginUser();
-
 #endif
