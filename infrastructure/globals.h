@@ -18,6 +18,7 @@ typedef struct {
 typedef struct SongNode {
     Music song;
     char title[256];
+    char fullPath[1014];
     struct SongNode* next;
     struct SongNode* prev;
 } SongNode;
@@ -80,4 +81,5 @@ Library userLibrary;
 void SkipForward();
 void SkipBackward();
 
+void LoginUser();
 #endif
