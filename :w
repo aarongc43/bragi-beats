@@ -104,6 +104,7 @@ void DrawSongQueue(Rectangle queue) {
     int startY = sidebarY + 10;
     int padding = 5;
     int textHeight = 20;
+    int maxSongsVisible = (sidebarHeight - 20) / (20 + padding);
     SongNode* node = head;
     
     while (node != NULL && startY < sidebarY + sidebarHeight) {
@@ -210,6 +211,7 @@ void DrawUI(Layout layout) {
 
     static char username[256] = {0};
     static int letterCount = 0;
+    static Album *userLibrary = NULL;
     static bool loginButtonPreviouslyClicked = false;
     static bool inputActive = false;
 
@@ -234,26 +236,6 @@ void DrawUI(Layout layout) {
         inputActive = true;
     }
 
-    if (inputActive) {
-        DrawRectangleRec(textBoxBounds, textBoxColor);
-        DrawText(username, textBoxBounds.x + 5, textBoxBounds.y + (textBoxBounds.height / 2) - 10, 20, BLACK);
-        
-        int key = GetCharPressed();
-        while (key > 0) {
-            if ((key > 32) && (key <= 125) && (letterCount < 255)) {
-                username[letterCount] = (char)key;
-                username[letterCount + 1] = '\0';
-                letterCount++;
-            }
-            key = GetCharPressed();
-        }
-
-        if (IsKeyPressed(KEY_BACKSPACE) && letterCount > 0) {
-            letterCount--;
-            username[letterCount] = '\0';
-        }
-    }
-
     DrawVisualizerSelection(&showList, visualizerButtonBounds);
 
 
@@ -275,39 +257,6 @@ void DrawUI(Layout layout) {
 
     EndDrawing();
 }
-
-void DrawTextBox(Rectangle textBoxBounds, char* text, int maxLength, bool* isActive) {
-    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-        if (CheckCollisionPointRec(GetMousePosition(), textBoxBounds)) {
-            *isActive = true;
-        } else {
-            *isActive = false;
-        }
-    }
-
-    if (*isActive) {
-        int key = GetCharPressed();
-        while (key > 0) {
-            if ((key >= 32) && (key <= 125) && ((int)strlen(text) < maxLength)) {
-                int length = strlen(text);
-                text[length] = (char)key;
-                text[length + 1] = '\0';
-            }
-
-            key = GetCharPressed();
-        }
-        if (IsKeyPressed(KEY_BACKSPACE)) {
-            int length = strlen(text);
-            if (length > 0) {
-                text[length - 1] = '\0';
-            }
-        }
-    }
-
-    DrawRectangleRec(textBoxBounds, *isActive ? LIGHTGRAY : DARKGRAY);
-    DrawText(text, textBoxBounds.x + 5, textBoxBounds.y + 8, 20, BLACK);
-}
-
 
 void DrawVisualizerSelection(bool *showList, Rectangle buttonBounds) {
     const char* visualizerNames[] = {"Bar Chart", "Circle Star", "Wing"};

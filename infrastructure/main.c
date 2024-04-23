@@ -48,6 +48,9 @@ VisualizerType currentVisualizer = VISUALIZER_BAR_CHART;
 
 bool authorizedUser = false;
 bool showLibrary = false;
+bool loginActive = false;
+char username[256] = {0};
+int letterCount = 0;
 
 Library userLibrary = {NULL, 0};
 
