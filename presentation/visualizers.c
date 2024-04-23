@@ -26,23 +26,6 @@ void barChartVisual(float out_smooth[], size_t m, Rectangle visualizerSpace) {
     }
 }
 
-void circleVisual(float out_smooth[], size_t m, int centerX, int centerY) {
-    float maxRadius = ((float)screenHeight - 40 - 100) / 2;
-
-    for (size_t i = 0; i < m; ++i) {
-
-        float amplitude = out_smooth[i];
-
-        Color color = (Color){(unsigned char)(255 * sin(GetTime())), 128, (unsigned char)(255 * cos(GetTime())), 255};
-
-        for (int j = 0; j < 5; j++) { // Example: Simulated glow effect
-            float fadeFactor = (5 - j) / 5.0f; // Decrease opacity
-            Color fadedColor = ColorAlpha(color, fadeFactor);
-            DrawCircleLines(centerX, centerY, amplitude*maxRadius, fadedColor);
-        }
-    }
-}
-
 void circleStarVisual(float out_smooth[], size_t m, int centerX, int centerY) {
     Color color = (Color){(unsigned char)(255 * sin(GetTime())), 128, (unsigned char)(255 * cos(GetTime())), 255};
     float maxRadius = ((float)screenHeight - 20 - 100) / 2;
