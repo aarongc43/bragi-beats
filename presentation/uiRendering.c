@@ -121,23 +121,6 @@ void DrawSongQueue(Rectangle queue) {
 
         startY += textHeight + padding;
         node = node->next;
-/*
-    int startY = sidebarY + 10;
-    int padding = 5;
-    int maxSongsVisible = (sidebarHeight - 20) / (20 + padding);
-    int songIndex = songQueue.front;
-
-    for (int i = songQueue.front; i <= songQueue.rear && i < songQueue.front + maxSongsVisible; i++) {
-        int posY = startY + ((i - songQueue.front) * (20 + padding));
-        int fontSize = 12;
-
-        DrawText(songQueue.titles[i], sidebarX + 5, posY, fontSize, CUSTOMDARKGRAY);
-
-        if (posY + 20 > sidebarY + sidebarHeight) {
-            break;
-        }
-
-        */
     }
 }
 
@@ -232,12 +215,11 @@ void DrawUI(Layout layout) {
 
     static bool visualizerButtonPreviouslyPressed = false;
 
-    BeginDrawing();
-    ClearBackground(OFFWHITE);
     DrawPlaybackControls(layout.playbackControlPanel);
     if (currentSong != NULL) {
         DrawProgressBar(currentSong->song, screenHeight, screenWidth);
     }
+
     DrawLibraryOrQueue(layout);
 
     if (DrawButton(visualizerButtonBounds, "Visualizers", 20) && !visualizerButtonPreviouslyPressed) {
