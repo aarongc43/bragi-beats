@@ -252,6 +252,12 @@ void DrawUI(Layout layout) {
             letterCount--;
             username[letterCount] = '\0';
         }
+        if (IsKeyPressed(KEY_ENTER)) {
+            char path[512] = "./business/music/users/aaron";
+            processAlbumDirectory(path,"aaron");
+            inputActive = false;
+        }
+
     }
 
     DrawVisualizerSelection(&showList, visualizerButtonBounds);

@@ -218,7 +218,7 @@ void SkipBackward() {
     }
 }
 
-void processAlbumDirectory(const char *albumPath, const char *albumName) {
+void processAlbumDirectory(const char *baseDir, const char *albumName) {
 #ifdef _WIN32
     WIN32_FIND_DATA findFileData;
     HANDLE hFind = FindFirstFile(strcat(albumPath, "\\*"), &findFileData);
@@ -247,21 +247,30 @@ void processAlbumDirectory(const char *albumPath, const char *albumName) {
 #else
     DIR *dir;
     struct dirent *entry;
-    if ((dir = opendir(albumPath)) != NULL) {
-        while ((entry = readdir(dir)) != NULL) {
-            if (entry->d_type == DT_REG && IsFileExtension(entry->d_name, ".wav")) {
-                char filePath[1024];
-                sprintf(filePath, "%s/%s", albumPath, entry->d_name);
-                Music song = LoadMusicStream(filePath);
-                if (song.ctxData != NULL) {
-                    AddSongToAlbum(albumName, entry->d_name);
-                }
-            }
-        }
-        closedir(dir);
-    } else {
+    char pathBuffer[1024];
+
+    if ((dir = opendir(baseDir)) == NULL) {
         perror("Failed to open album directory");
+        return;
     }
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_DIR) {
+            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+                continue;
+
+            sprintf(pathBuffer, "%s/%s", baseDir, entry->d_name);
+            if (IsDirectory(pathBuffer)) {
+                processAlbumDirectory(pathBuffer, entry->d_name);  // Recursively process each album directory
+            }
+        } else if (entry->d_type == DT_REG && IsFileExtension(entry->d_name, ".wav")) {
+            sprintf(pathBuffer, "%s/%s", baseDir, entry->d_name);
+            AddSongToAlbum(albumName ? albumName : "Miscellaneous", entry->d_name, pathBuffer); // Adding song to the current album or a default one
+        }
+    }
+
+    closedir(dir);
+
 #endif
 }
 
@@ -274,10 +283,15 @@ bool IsDirectory(const char *path) {
         return (statbuf.st_mode & _S_IFDIR) != 0;
     #else 
         if (stat(path, &statbuf) != 0) {
-            return 0;
+            return false;
         }
         return S_ISDIR(statbuf.st_mode);
     #endif
+}
+
+bool IsFileExtension(const char *filename, const char *extension) {
+    const char *dot = strchr(filename, '.');
+    return dot && !strcmp(dot, extension);
 }
 
 void LoginUser() {

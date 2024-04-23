@@ -84,6 +84,6 @@ Library userLibrary;
 
 void SkipForward();
 void SkipBackward();
-
+void processAlbumDirectory(const char *albumPath, const char *albumName);
 void LoginUser();
 #endif
