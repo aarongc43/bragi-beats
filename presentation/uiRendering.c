@@ -166,6 +166,46 @@ void DrawPlaybackControls(Rectangle playbackControlPanel) {
 }
 
 void DrawProgressBar(Music music, int screenHeight, int screenWidth) {
+    if (music.stream.buffer == NULL) return;  // Ensure there's a song loaded
+
+    const int progressBarX = 100;
+    const int progressBarY = screenHeight - 50;
+    const int progressBarWidth = screenWidth - 200;
+    const int progressBarHeight = 20;
+    const float minProgressBarWidth = 5.0f;
+
+    float songLength = GetMusicTimeLength(music);
+    float currentTime = GetMusicTimePlayed(music);
+    float progress = currentTime / songLength;
+
+    float progressBarActualWidth = progressBarWidth * progress;
+    progressBarActualWidth = (progressBarActualWidth < minProgressBarWidth) ? minProgressBarWidth : progressBarActualWidth;
+
+    Rectangle progressBarRectangle = { progressBarX, progressBarY, progressBarActualWidth, progressBarHeight };
+    Rectangle fullProgressBarRectangle = { progressBarX, progressBarY, progressBarWidth, progressBarHeight };
+
+    // Draw the full progress bar background
+    DrawRectangleRec(fullProgressBarRectangle, DARKGRAY);
+    // Draw the progress on the bar
+    DrawRectangleRec(progressBarRectangle, LIGHTGRAY);
+    // Draw the outline
+    DrawRectangleLines(progressBarX, progressBarY, progressBarWidth, progressBarHeight, BLACK);
+
+    // Handle mouse input for manual progress adjustment
+    if (CheckCollisionPointRec(GetMousePosition(), fullProgressBarRectangle)) {
+        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
+            // Set the new song time based on mouse position
+            float newProgress = (GetMouseX() - progressBarX) / (float)progressBarWidth;
+            SeekMusicStream(music, newProgress * songLength); // This function depends on the capabilities of your audio library
+            currentTime = GetMusicTimePlayed(music); // Update the current time to match the new position
+            progress = currentTime / songLength; // Update progress to reflect the new position
+            progressBarActualWidth = progressBarWidth * progress; // Update progress bar width to new position
+        }
+    }
+}
+
+/*
+void DrawProgressBar(Music music, int screenHeight, int screenWidth) {
     if (music.stream.buffer == NULL) return;
 
     float songLength = GetMusicTimeLength(music);
@@ -184,6 +224,7 @@ void DrawProgressBar(Music music, int screenHeight, int screenWidth) {
     DrawRectangleRec(progressBarRectangle, LIGHTGRAY);
     DrawRectangleLines(100, screenHeight - 50, progressBarWidth, progressBarHeight, BLACK);
 }
+*/
 
 void DrawUI(Layout layout) {
     int screenWidth = GetScreenWidth();
