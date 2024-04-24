@@ -3,6 +3,7 @@
 
 #include <raylib.h>
 #include <math.h>
+#include <stdio.h>
 
 void barChartVisual(float out_smooth[], size_t m, Rectangle visualizerSpace) {
     float barWidth = visualizerSpace.width / (float)m;
@@ -18,8 +19,8 @@ void barChartVisual(float out_smooth[], size_t m, Rectangle visualizerSpace) {
 
         Color color = (Color){(unsigned char)(255 * sin(GetTime())), 128, (unsigned char)(255 * cos(GetTime())), 255};
 
-        for (int j = 0; j < 5; j++) { // Example: Simulated glow effect
-            float fadeFactor = (5 - j) / 5.0f; // Decrease opacity
+        for (int j = 0; j < 5; j++) {
+            float fadeFactor = (5 - j) / 5.0f;
             Color fadedColor = ColorAlpha(color, fadeFactor);
             DrawLineEx(start, end, lineThickness * fadeFactor, fadedColor);
         }
@@ -29,11 +30,10 @@ void barChartVisual(float out_smooth[], size_t m, Rectangle visualizerSpace) {
 void circleStarVisual(float out_smooth[], size_t m, int centerX, int centerY) {
     Color color = (Color){(unsigned char)(255 * sin(GetTime())), 128, (unsigned char)(255 * cos(GetTime())), 255};
     float maxRadius = ((float)screenHeight - 20 - 100) / 2;
-    // This ensures that we always draw a line back to the start point.
     float angleStep = 360.0f / (float)(m-1);  
 
     for (size_t i = 0; i < m; ++i) {
-        float amplitude = out_smooth[i % m]; // Use modulo to ensure the last point connects to the start
+        float amplitude = out_smooth[i % m];
         float angle = angleStep * i;
         float lineThickness = 2.0f;
         float radian = angle * (PI / 180.0f);
@@ -46,7 +46,6 @@ void circleStarVisual(float out_smooth[], size_t m, int centerX, int centerY) {
 
         DrawLineEx(start, end, lineThickness, color);
     }
-    // Explicitly close the circle by drawing the last line to the start point
     Vector2 start = { (float)centerX, (float)centerY };
     Vector2 end = { centerX + cos(0) * (out_smooth[0] * maxRadius),
                     centerY + sin(0) * (out_smooth[0] * maxRadius) };
@@ -82,6 +81,7 @@ void wingVisual(float out_smooth[], size_t m, int centerX, int centerY) {
 }
 
 void kaleidoscopeVisual(float out_smooth[], size_t m, int centerX, int centerY) {
+    printf("kaleidoscopeVisual");
     float maxRadius = ((float)screenHeight - 40 - 100) / 2;
     float angleStep = 180.0f / m;
 

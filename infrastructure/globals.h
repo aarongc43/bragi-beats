@@ -32,7 +32,6 @@ extern SongQueue songQueue;
 
 typedef enum {
     VISUALIZER_BAR_CHART,
-    VISUALIZER_CIRCLE,
     VISUALIZER_CIRCLE_STAR,
     VISUALIZER_WING,
     VISUALIZER_KALEIDOSCOPE
@@ -61,9 +60,11 @@ extern bool showLibrary;
 extern bool loginActive;
 extern char username[256];
 extern int letterCount;
+extern bool visualizerListOpen;
 
 typedef struct Song {
     char name[256];
+    char filePath[1024];
     struct Song *next;
 } Song;
 
@@ -84,6 +85,7 @@ Library userLibrary;
 
 void SkipForward();
 void SkipBackward();
-void processAlbumDirectory(const char *albumPath, const char *albumName);
+bool processAlbumDirectory(const char *albumPath, const char *albumName);
 void LoginUser();
+void PlaySong(Song *song);
 #endif

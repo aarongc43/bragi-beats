@@ -43,6 +43,7 @@ Music previousMusic;
 int currentSongIndex = -1;
 bool isPlaying = false;
 bool showList = false;
+bool visualizerListOpen = false;
 
 VisualizerType currentVisualizer = VISUALIZER_BAR_CHART;
 
@@ -61,8 +62,9 @@ void playSong(SongNode *song);
 void PlayPause();
 void SkipBackward();
 void SkipForward();
-void processAlbumDirectory(const char *albumPath, const char *albumName);
+bool processAlbumDirectory(const char *albumPath, const char *albumName);
 bool IsDirectory(const char *path);
+void PlaySong(Song *song);
 
 int main(void) {
 
@@ -73,8 +75,7 @@ int main(void) {
 
     InitAudioDevice();
 
-
-   while(!WindowShouldClose()) {
+    while(!WindowShouldClose()) {
         processDroppedFiles();
 
         size_t numberFftBins = ProcessFFT(in_raw, out_log, out_smooth);
@@ -164,6 +165,44 @@ void processDroppedFiles() {
     }
 }
 
+void PlaySong(Song *song) {
+    if (song == NULL) {
+        fprintf(stderr, "Invalid song path.\n");
+        return;
+    }
+
+    if (isPlaying && currentSong != NULL) {
+        StopMusicStream(currentSong->song);
+        UnloadMusicStream(currentSong->song);
+    }
+
+    Music newSong = LoadMusicStream(song->filePath);
+    if (newSong.ctxData != NULL) {
+        if (currentSong != NULL) {
+            free(currentSong);
+        }
+
+        currentSong = (SongNode*)malloc(sizeof(SongNode));
+        if (currentSong == NULL) {
+            fprintf(stderr, "Failed to allocate memory for the new song node.\n");
+            return;
+        }
+
+        strncpy(currentSong->title, song->name, sizeof(currentSong->title) - 1);
+        currentSong->title[sizeof(currentSong->title) - 1] = '\0';
+        strncpy(currentSong->fullPath, song->filePath, sizeof(currentSong->fullPath) - 1);
+        currentSong->fullPath[sizeof(currentSong->fullPath) - 1] = '\0';
+        currentSong->song = newSong;
+
+        PlayMusicStream(newSong);
+        SetMusicVolume(newSong, 0.5f);
+        isPlaying = true;
+        AttachAudioStreamProcessor(newSong.stream, callback);
+    } else {
+        fprintf(stderr, "Failed to load song: %s\n", song->filePath);
+    }
+}
+
 void PlayPause() {
     printf("Play/Pause()\n");
     if (currentSong != NULL) {
@@ -218,7 +257,8 @@ void SkipBackward() {
     }
 }
 
-void processAlbumDirectory(const char *baseDir, const char *albumName) {
+bool processAlbumDirectory(const char *baseDir, const char *albumName) {
+    bool success = false;
 #ifdef _WIN32
     WIN32_FIND_DATA findFileData;
     HANDLE hFind = FindFirstFile(strcat(albumPath, "\\*"), &findFileData);
@@ -238,6 +278,7 @@ void processAlbumDirectory(const char *baseDir, const char *albumName) {
                 Music song = LoadMusicStream(filePath);
                 if (song.ctxData != NULL) {
                     AddSongToAlbum(albumName, findFileData.cFileName);
+                    success = true;
                 }
             }
         }
@@ -251,7 +292,7 @@ void processAlbumDirectory(const char *baseDir, const char *albumName) {
 
     if ((dir = opendir(baseDir)) == NULL) {
         perror("Failed to open album directory");
-        return;
+        return false;
     }
 
     while ((entry = readdir(dir)) != NULL) {
@@ -261,17 +302,22 @@ void processAlbumDirectory(const char *baseDir, const char *albumName) {
 
             sprintf(pathBuffer, "%s/%s", baseDir, entry->d_name);
             if (IsDirectory(pathBuffer)) {
-                processAlbumDirectory(pathBuffer, entry->d_name);  // Recursively process each album directory
+                if (processAlbumDirectory(pathBuffer, entry->d_name)) {
+                    success = true;
+                }
             }
         } else if (entry->d_type == DT_REG && IsFileExtension(entry->d_name, ".wav")) {
             sprintf(pathBuffer, "%s/%s", baseDir, entry->d_name);
-            AddSongToAlbum(albumName ? albumName : "Miscellaneous", entry->d_name, pathBuffer); // Adding song to the current album or a default one
+            AddSongToAlbum(albumName ? albumName : "Miscellaneous", entry->d_name, pathBuffer);
+            success = true;
         }
     }
 
     closedir(dir);
 
 #endif
+
+    return success;
 }
 
 bool IsDirectory(const char *path) {
@@ -287,14 +333,4 @@ bool IsDirectory(const char *path) {
         }
         return S_ISDIR(statbuf.st_mode);
     #endif
-}
-
-bool IsFileExtension(const char *filename, const char *extension) {
-    const char *dot = strchr(filename, '.');
-    return dot && !strcmp(dot, extension);
-}
-
-void LoginUser() {
-    authorizedUser = true;
-    showLibrary = true;
 }
