@@ -3,7 +3,6 @@
 
 #include <raylib.h>
 #include <math.h>
-#include <stdio.h>
 
 void barChartVisual(float out_smooth[], size_t m, Rectangle visualizerSpace) {
     float barWidth = visualizerSpace.width / (float)m;
@@ -81,7 +80,6 @@ void wingVisual(float out_smooth[], size_t m, int centerX, int centerY) {
 }
 
 void kaleidoscopeVisual(float out_smooth[], size_t m, int centerX, int centerY) {
-    printf("kaleidoscopeVisual");
     float maxRadius = ((float)screenHeight - 40 - 100) / 2;
     float angleStep = 180.0f / m;
 

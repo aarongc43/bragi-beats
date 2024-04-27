@@ -299,7 +299,7 @@ void DrawUI(Layout layout) {
         int textX = layout.titleBar.x + (layout.titleBar.width - textWidth) / 2;
         int textY = layout.titleBar.y + (layout.titleBar.height - fontSize) / 2;
         DrawText(text, textX, textY, fontSize, CUSTOMDARKGRAY);
-    } else if (!isPlaying) {
+    } else if (!isPlaying && (currentSong == NULL)) {
         const char* text = "Drag and Drop a Song to Start Playing";
         int fontSize = 34;
         int textWidth = MeasureText(text, fontSize);
