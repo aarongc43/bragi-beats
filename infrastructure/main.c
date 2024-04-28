@@ -2,9 +2,15 @@
 #include <raylib.h>
 #include <complex.h>
 #include <string.h>
+#include <stdbool.h>
+#include <unistd.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <dirent.h>
 #include <sys/stat.h>
-#include <stdbool.h>
+#endif
 
 #include "globals.h"
 #include "../business/audioProcessing.h"
@@ -37,23 +43,28 @@ Music previousMusic;
 int currentSongIndex = -1;
 bool isPlaying = false;
 bool showList = false;
+bool visualizerListOpen = false;
 
 VisualizerType currentVisualizer = VISUALIZER_BAR_CHART;
 
 bool authorizedUser = false;
 bool showLibrary = false;
+bool loginActive = false;
+char username[256] = {0};
+int letterCount = 0;
 
 Library userLibrary = {NULL, 0};
 
-void enqueueSong(Music song, const char* title);
+void enqueueSong(Music song, const char* title, const char* fullPath);
 void PlayNextSongInQueue();
 void processDroppedFiles();
 void playSong(SongNode *song);
 void PlayPause();
 void SkipBackward();
 void SkipForward();
-void processAlbumDirectory(const char *albumPath, const char *albumName);
+bool processAlbumDirectory(const char *albumPath, const char *albumName);
 bool IsDirectory(const char *path);
+void PlaySong(Song *song);
 
 int main(void) {
 
@@ -64,8 +75,7 @@ int main(void) {
 
     InitAudioDevice();
 
-
-   while(!WindowShouldClose()) {
+    while(!WindowShouldClose()) {
         processDroppedFiles();
 
         size_t numberFftBins = ProcessFFT(in_raw, out_log, out_smooth);
@@ -79,11 +89,12 @@ int main(void) {
     return 0;
 }
 
-void enqueueSong(Music song, const char* title) {
+void enqueueSong(Music song, const char* title, const char* fullPath) {
     SongNode* newNode = (SongNode*)malloc(sizeof(SongNode));
     newNode->song = song;
     strncpy(newNode->title, title, sizeof(newNode->title) - 1);
     newNode->title[sizeof(newNode->title) - 1] = '\0';
+    strcpy(newNode->fullPath, fullPath);
     newNode->next = NULL;
     newNode->prev = tail;
     
@@ -104,6 +115,15 @@ void enqueueSong(Music song, const char* title) {
         AttachAudioStreamProcessor(newNode->song.stream, callback);
         isPlaying = true;
     }
+    if (songQueue.rear == MAX_SONGS - 1) {
+        printf("Queue Full\n");
+    } else {
+        if (songQueue.front == -1) {
+            songQueue.front = 0;
+        }
+        songQueue.rear++;
+        strncpy(songQueue.titles[songQueue.rear], title, sizeof(songQueue.titles[songQueue.rear]) - 1);
+   }
 }
 
 void processDroppedFiles() {
@@ -119,8 +139,8 @@ void processDroppedFiles() {
                 Music song = LoadMusicStream(droppedFiles.paths[i]);
                 if (song.ctxData != NULL) {
                     const char* title = GetFileName(droppedFiles.paths[i]);
-                    enqueueSong(song, title);
-
+                    const char* fullPath = droppedFiles.paths[i];
+                    enqueueSong(song, title, fullPath);
                 }
             }
         }
@@ -145,6 +165,44 @@ void processDroppedFiles() {
     }
 }
 
+void PlaySong(Song *song) {
+    if (song == NULL) {
+        fprintf(stderr, "Invalid song path.\n");
+        return;
+    }
+
+    if (isPlaying && currentSong != NULL) {
+        StopMusicStream(currentSong->song);
+        UnloadMusicStream(currentSong->song);
+    }
+
+    Music newSong = LoadMusicStream(song->filePath);
+    if (newSong.ctxData != NULL) {
+        if (currentSong != NULL) {
+            free(currentSong);
+        }
+
+        currentSong = (SongNode*)malloc(sizeof(SongNode));
+        if (currentSong == NULL) {
+            fprintf(stderr, "Failed to allocate memory for the new song node.\n");
+            return;
+        }
+
+        strncpy(currentSong->title, song->name, sizeof(currentSong->title) - 1);
+        currentSong->title[sizeof(currentSong->title) - 1] = '\0';
+        strncpy(currentSong->fullPath, song->filePath, sizeof(currentSong->fullPath) - 1);
+        currentSong->fullPath[sizeof(currentSong->fullPath) - 1] = '\0';
+        currentSong->song = newSong;
+
+        PlayMusicStream(newSong);
+        SetMusicVolume(newSong, 0.5f);
+        isPlaying = true;
+        AttachAudioStreamProcessor(newSong.stream, callback);
+    } else {
+        fprintf(stderr, "Failed to load song: %s\n", song->filePath);
+    }
+}
+
 void PlayPause() {
     printf("Play/Pause()\n");
     if (currentSong != NULL) {
@@ -158,50 +216,121 @@ void PlayPause() {
 }
 
 void SkipForward() {
-    printf("SkipForward()\n");
+    printf("Attempting to skip forward from song: %s\n", currentSong ? currentSong->title : "None");
     if (currentSong && currentSong->next) {
         UnloadMusicStream(currentSong->song);
         currentSong = currentSong->next;
-        PlayMusicStream(currentSong->song);
-        SetMusicVolume(currentSong->song, 0.5f);
-        AttachAudioStreamProcessor(currentSong->song.stream, callback);
+        currentSong->song = LoadMusicStream(currentSong->fullPath);
+
+        if (currentSong->song.stream.buffer != NULL) {
+            PlayMusicStream(currentSong->song);
+            SetMusicVolume(currentSong->song, 0.5f);
+            AttachAudioStreamProcessor(currentSong->song.stream, callback);
+            printf("Skipped forward to: %s\n", currentSong->title);
+        } else {
+            printf("Error: Failed to load song stream for: %s\n", currentSong->title);
+        }
+    } else {
+        printf("Cannot skip forward: No next song or stream load failed.\n");
     }
 }
 
 void SkipBackward() {
-    printf("SkipBackward()");
     if (currentSong && currentSong->prev) {
-        UnloadMusicStream(currentSong->song);
+        printf("SkipBackward() - Current song: %s\n", currentSong->title);
+        UnloadMusicStream(currentSong->song);  // Unload the current song
+
         currentSong = currentSong->prev;
-        PlayMusicStream(currentSong->song);
-        SetMusicVolume(currentSong->song, 0.5f);
-        AttachAudioStreamProcessor(currentSong->song.stream, callback);
+        
+        printf("Loading previous song: %s\n", currentSong->title);
+        currentSong->song = LoadMusicStream(currentSong->fullPath);
+        if (currentSong->song.stream.buffer != NULL) {
+            PlayMusicStream(currentSong->song);
+            SetMusicVolume(currentSong->song, 0.5f);
+            AttachAudioStreamProcessor(currentSong->song.stream, callback);
+        } else {
+            printf("Error: Failed to load the previous song stream.\n");
+        }
+    } else {
+        printf("No previous song to play or failed to load song.\n");
+        isPlaying = false;
     }
 }
 
-void processAlbumDirectory(const char *albumPath, const char *albumName) {
-    DIR *dir;
-    struct dirent *entry;
-    if ((dir = opendir(albumPath)) != NULL) {
-        while ((entry = readdir(dir)) != NULL) {
-            if (entry->d_type == DT_REG && IsFileExtension(entry->d_name, ".wav")) {
-                char filePath[1024];
-                sprintf(filePath, "%s\%s", albumPath, entry->d_name);
+bool processAlbumDirectory(const char *baseDir, const char *albumName) {
+    bool success = false;
+#ifdef _WIN32
+    WIN32_FIND_DATA findFileData;
+    HANDLE hFind = FindFirstFile(strcat(albumPath, "\\*"), &findFileData);
+
+    if (hFind == INVALID_HANDLE_VALUE) {
+        perror("Failed to open album directory");
+        return;
+    }
+
+    do {
+        if (findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            continue; // Skip directories
+        } else {
+            char filePath[1024];
+            sprintf(filePath, "%s\\%s", albumPath, findFileData.cFileName);
+            if (IsFileExtension(findFileData.cFileName, ".wav")) {
                 Music song = LoadMusicStream(filePath);
                 if (song.ctxData != NULL) {
-                    AddSongToAlbum(albumName, entry->d_name);
+                    AddSongToAlbum(albumName, findFileData.cFileName);
+                    success = true;
                 }
             }
         }
-        closedir(dir);
-    } else {
+    } while (FindNextFile(hFind, &findFileData) != 0);
+
+    FindClose(hFind);
+#else
+    DIR *dir;
+    struct dirent *entry;
+    char pathBuffer[1024];
+
+    if ((dir = opendir(baseDir)) == NULL) {
         perror("Failed to open album directory");
+        return false;
     }
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_DIR) {
+            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+                continue;
+
+            sprintf(pathBuffer, "%s/%s", baseDir, entry->d_name);
+            if (IsDirectory(pathBuffer)) {
+                if (processAlbumDirectory(pathBuffer, entry->d_name)) {
+                    success = true;
+                }
+            }
+        } else if (entry->d_type == DT_REG && IsFileExtension(entry->d_name, ".wav")) {
+            sprintf(pathBuffer, "%s/%s", baseDir, entry->d_name);
+            AddSongToAlbum(albumName ? albumName : "Miscellaneous", entry->d_name, pathBuffer);
+            success = true;
+        }
+    }
+
+    closedir(dir);
+
+#endif
+
+    return success;
 }
 
 bool IsDirectory(const char *path) {
     struct stat statbuf;
-    if (stat(path, &statbuf) != 0)
-        return 0;
-    return S_ISDIR(statbuf.st_mode);
+    #ifdef _WIN32 
+        if (_stat(path, &statbuf) != 0) {
+        return false;
+        }
+        return (statbuf.st_mode & _S_IFDIR) != 0;
+    #else 
+        if (stat(path, &statbuf) != 0) {
+            return false;
+        }
+        return S_ISDIR(statbuf.st_mode);
+    #endif
 }

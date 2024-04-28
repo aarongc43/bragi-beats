@@ -5,8 +5,6 @@
 #include <complex.h>
 #include <raylib.h>
 
-#define FFT_SIZE (1<<15)
-
 void fft(float in[], size_t stride, float complex out[], size_t n);
 float amp(float complex z);
 void callback(void *bufferData, unsigned int frames);

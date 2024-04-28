@@ -18,6 +18,7 @@ typedef struct {
 typedef struct SongNode {
     Music song;
     char title[256];
+    char fullPath[1014];
     struct SongNode* next;
     struct SongNode* prev;
 } SongNode;
@@ -25,12 +26,12 @@ typedef struct SongNode {
 extern SongNode* currentSong;
 extern SongNode* prevSong;
 extern SongNode* nextSong;
+extern SongNode* head;
 
 extern SongQueue songQueue;
 
 typedef enum {
     VISUALIZER_BAR_CHART,
-    VISUALIZER_CIRCLE,
     VISUALIZER_CIRCLE_STAR,
     VISUALIZER_WING,
     VISUALIZER_KALEIDOSCOPE
@@ -46,6 +47,19 @@ extern float complex out_raw[FFT_SIZE];
 extern float out_log[FFT_SIZE];
 extern float out_smooth[FFT_SIZE];
 
+float in_raw_left[FFT_SIZE];
+float in_raw_right[FFT_SIZE];
+
+float in_win[FFT_SIZE];
+
+float complex out_raw_left[FFT_SIZE];
+float complex out_raw_right[FFT_SIZE];
+
+float  out_log_left[FFT_SIZE];
+float  out_log_right[FFT_SIZE];
+
+float out_smooth_left[FFT_SIZE];
+float out_smooth_right[FFT_SIZE];
 extern Music currentMusic;
 extern Music previousMusic;
 extern bool isPlaying;
@@ -56,9 +70,14 @@ extern Color CUSTOMDARKGRAY;
 
 extern bool authorizedUser;
 extern bool showLibrary;
+extern bool loginActive;
+extern char username[256];
+extern int letterCount;
+extern bool visualizerListOpen;
 
 typedef struct Song {
     char name[256];
+    char filePath[1024];
     struct Song *next;
 } Song;
 
@@ -79,5 +98,7 @@ Library userLibrary;
 
 void SkipForward();
 void SkipBackward();
-
+bool processAlbumDirectory(const char *albumPath, const char *albumName);
+void LoginUser();
+void PlaySong(Song *song);
 #endif

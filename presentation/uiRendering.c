@@ -22,29 +22,26 @@ Layout CalculateLayout(int screenWidth, int screenHeight) {
 bool DrawButton(Rectangle bounds, const char* text, int fontSize) {
     Vector2 mousePoint = GetMousePosition();
     bool isHovering = CheckCollisionPointRec(mousePoint, bounds);
-    bool clicked = false;
+    bool isPressed = false;
 
     if (isHovering) {
         DrawRectangleRec(bounds, IsMouseButtonDown(MOUSE_BUTTON_LEFT) ? CUSTOMDARKGRAY : LIGHTGRAY);
-        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-            clicked = true;
+        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+            isPressed = true;
         }
     } else {
         DrawRectangleRec(bounds, GRAY);
     }
 
     int textWidth = MeasureText(text, fontSize);
-    DrawText(text, bounds.x + (bounds.width / 2) - ((float)textWidth / 2), bounds.y + (bounds.height / 2) - (fontSize / 2), fontSize, BLACK);
-    return clicked;
+    DrawText(text, bounds.x + (bounds.width / 2) - ((float)textWidth / 2), bounds.y + (bounds.height / 2) - ((float)fontSize / 2), fontSize, BLACK);
+
+    return isPressed;
 }
 
 void DrawTextCentered(const char* text, Rectangle bounds, int fontSize, Color color) {
     int textWidth = MeasureText(text, fontSize);
     DrawText(text, bounds.x + (bounds.width - textWidth) / 2, bounds.y + (bounds.height - fontSize) / 2, fontSize, color);
-}
-
-void DrawTitleBar() {
-
 }
 
 void DrawLibraryOrQueue(Layout layout) {
@@ -54,8 +51,12 @@ void DrawLibraryOrQueue(Layout layout) {
         DrawSongQueue(layout.queue);
     }
 }
+
 void DrawLibrary(Rectangle libraryBounds) {
-    printf("Drawing Library");
+    if (visualizerListOpen) {
+        return;
+    }
+
     int offsetY = 0;
     int itemHeight = 30;
     int indentSize = 30;
@@ -67,7 +68,7 @@ void DrawLibrary(Rectangle libraryBounds) {
     while (currentAlbum != NULL && currentItem < maxViewableItems) {
 
         Rectangle albumBounds = {libraryBounds.x, libraryBounds.y + offsetY, libraryBounds.width, itemHeight};
-        bool albumClicked = DrawButton(albumBounds, currentAlbum->name, 20);
+        bool albumClicked = DrawButton(albumBounds, currentAlbum->name, 12);
         offsetY += itemHeight;
         currentItem++;
 
@@ -75,7 +76,12 @@ void DrawLibrary(Rectangle libraryBounds) {
             Song *currentSong = currentAlbum->songs;
             while (currentSong != NULL && currentItem < maxViewableItems) {
                 Rectangle songBounds = {libraryBounds.x + indentSize, libraryBounds.y + offsetY, libraryBounds.width - indentSize, itemHeight};
-                DrawText(currentSong->name, songBounds.x + 5, songBounds.y + 5, 18, BLACK);
+
+                if (CheckCollisionPointRec(GetMousePosition(), songBounds) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                    PlaySong(currentSong);
+                } else {
+                    DrawText(currentSong->name, songBounds.x + 5, songBounds.y + 5, 12, BLACK);
+                }
 
                 offsetY += itemHeight;
                 currentItem++;
@@ -83,8 +89,11 @@ void DrawLibrary(Rectangle libraryBounds) {
             }
         }
         if (albumClicked) {
-            currentAlbum->expanded =! currentAlbum->expanded;
+            currentAlbum->expanded = !currentAlbum->expanded;
         }
+
+        currentAlbum = currentAlbum->next;
+
         if (offsetY > libraryBounds.height) {
             // Scroll feature
         }
@@ -99,23 +108,27 @@ void DrawSongQueue(Rectangle queue) {
 
     DrawRectangle(sidebarX, sidebarY, sidebarWidth, sidebarHeight, OFFWHITE);
 
+    int fontSize = 12;
     int startY = sidebarY + 10;
     int padding = 5;
-    int maxSongsVisible = (sidebarHeight - 20) / (20 + padding);
-    int songIndex = songQueue.front;
+    int textHeight = 20;
+    SongNode* node = head;
+    
+    while (node != NULL && startY < sidebarY + sidebarHeight) {
+        Color textColor = BLACK;
+        Rectangle textBackground = { sidebarX + 5, startY, sidebarWidth - 10, textHeight };
 
-    for (int i = songQueue.front; i <= songQueue.rear && i < songQueue.front + maxSongsVisible; i++) {
-        int posY = startY + ((i - songQueue.front) * (20 + padding));
-        char songTitle[256];
-        strcpy(songTitle, GetFileName(songQueue.titles[songIndex]));
-        int fontSize = 12;
-
-        DrawText(songQueue.titles[i], sidebarX + 5, posY, fontSize, CUSTOMDARKGRAY);
-
-        if (posY + 20 > sidebarY + sidebarHeight) {
-            break;
+        if (node == currentSong) {
+            textColor = GOLD;
+            DrawRectangleRec(textBackground, BLACK);
         }
 
+        int textX = sidebarX + 10;
+        int textY = startY + (textHeight / 2) - (fontSize / 2);
+        DrawText(node->title, textX, textY, fontSize, textColor);
+
+        startY += textHeight + padding;
+        node = node->next;
     }
 }
 
@@ -125,8 +138,8 @@ void DrawPlaybackControls(Rectangle playbackControlPanel) {
     const int spacing = 30;
 
     float middleX = playbackControlPanel.x + (playbackControlPanel.width / 2);
-    float playPauseX = middleX - (buttonWidth / 2);
-    float playPauseY = playbackControlPanel.y + (playbackControlPanel.height / 2) - (buttonHeight / 2);
+    float playPauseX = middleX - ((float)buttonWidth / 2);
+    float playPauseY = playbackControlPanel.y + (playbackControlPanel.height / 2) - ((float)buttonHeight / 2);
 
     Rectangle playPauseBounds = {playPauseX, playPauseY, buttonWidth, buttonHeight};
     Rectangle skipBackBounds = {playPauseX - buttonWidth - spacing, playPauseY, buttonWidth, buttonHeight};
@@ -138,68 +151,54 @@ void DrawPlaybackControls(Rectangle playbackControlPanel) {
         if (DrawButton(playPauseBounds, isPlaying ? "Pause" : "Play", 20) && hasSongInList) {
             printf("Play/Pause");
             PlayPause();
-            printf("Play/Pause");
         }
 
         if (DrawButton(skipBackBounds, "<<", 20) && hasSongInList) {
             printf("skip backward");
             SkipBackward();
-            printf("skip backward");
         }
 
         if (DrawButton(skipForwardBounds, ">>", 20) && hasSongInList) {
             printf("skip forward");
             SkipForward();
-            printf("skip forward");
         }
     }
 }
 
-/*
 void DrawProgressBar(Music music, int screenHeight, int screenWidth) {
-    printf("Drawing Progress Bar\n");
-    printf("Music pointer: %p\n", (void*)&music);
+    if (music.stream.buffer == NULL) return;
+
+    const int progressBarX = 100;
+    const int progressBarY = screenHeight - 50;
+    const int progressBarWidth = screenWidth - 200;
+    const int progressBarHeight = 20;
+    const float minProgressBarWidth = 5.0f;
 
     float songLength = GetMusicTimeLength(music);
     float currentTime = GetMusicTimePlayed(music);
     float progress = currentTime / songLength;
-    int progressBarHeight = 20;
-    int progressBarWidth = screenWidth - 200;
 
     float progressBarActualWidth = progressBarWidth * progress;
-    float minProgressBarWidth = 5.0f;
-
     progressBarActualWidth = (progressBarActualWidth < minProgressBarWidth) ? minProgressBarWidth : progressBarActualWidth;
 
-    Rectangle progressBarRectangle = {100, screenHeight - 50, progressBarActualWidth, progressBarHeight};
+    Rectangle progressBarRectangle = { progressBarX, progressBarY, progressBarActualWidth, progressBarHeight };
+    Rectangle fullProgressBarRectangle = { progressBarX, progressBarY, progressBarWidth, progressBarHeight };
 
-    printf("Progress: %f, Song Length: %f, Current Time: %f\n", progress, songLength, currentTime);
-    printf("Progress Bar Width: %f, Actual Width: %f, Screen Height: %d\n", progressBarWidth, progressBarActualWidth, screenHeight);
-
+    DrawRectangleRec(fullProgressBarRectangle, DARKGRAY);
     DrawRectangleRec(progressBarRectangle, LIGHTGRAY);
-    DrawRectangleLines(100, screenHeight - 50, progressBarWidth, progressBarHeight, BLACK);
+    DrawRectangleLines(progressBarX, progressBarY, progressBarWidth, progressBarHeight, BLACK);
+
+    if (CheckCollisionPointRec(GetMousePosition(), fullProgressBarRectangle)) {
+        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
+            float newProgress = (GetMouseX() - progressBarX) / (float)progressBarWidth;
+            SeekMusicStream(music, newProgress * songLength);
+            currentTime = GetMusicTimePlayed(music);
+            progress = currentTime / songLength;
+            progressBarActualWidth = progressBarWidth * progress;
+        }
+    }
 }
-*/
 
-void DrawProgressBar(Music music, int screenHeight, int screenWidth) {
-    if (music.stream.buffer == NULL) return;  // Ensure there's a song loaded
-
-    float songLength = GetMusicTimeLength(music);
-    float currentTime = GetMusicTimePlayed(music);
-    float progress = currentTime / songLength;
-    int progressBarHeight = 20;
-    int progressBarWidth = screenWidth - 200;
-
-    float progressBarActualWidth = progressBarWidth * progress;
-    float minProgressBarWidth = 5.0f;
-
-    progressBarActualWidth = (progressBarActualWidth < minProgressBarWidth) ? minProgressBarWidth : progressBarActualWidth;
-
-    Rectangle progressBarRectangle = {100, screenHeight - 50, progressBarActualWidth, progressBarHeight};
-
-    DrawRectangleRec(progressBarRectangle, LIGHTGRAY);
-    DrawRectangleLines(100, screenHeight - 50, progressBarWidth, progressBarHeight, BLACK);
-}
 
 void DrawUI(Layout layout) {
     int screenWidth = GetScreenWidth();
@@ -220,16 +219,30 @@ void DrawUI(Layout layout) {
         .height = 50
     };
 
-    static bool visualizerButtonPreviouslyPressed = false;
-    static bool loginButtonPreviouslyPressed = false;
+    Rectangle textBoxBounds = {
+        .x = loginButtonBounds.x + loginButtonBounds.width + 20,
+        .y = loginButtonBounds.y,
+        .width = 120,
+        .height = 50
+    };
+
+    Color textBoxColor = loginActive ? SKYBLUE : LIGHTGRAY;
 
     BeginDrawing();
     ClearBackground(OFFWHITE);
+
+    static char username[256] = {0};
+    static int letterCount = 0;
+    static bool loginButtonPreviouslyClicked = false;
+    static bool inputActive = false;
+
+    static bool visualizerButtonPreviouslyPressed = false;
+
     DrawPlaybackControls(layout.playbackControlPanel);
     if (currentSong != NULL) {
         DrawProgressBar(currentSong->song, screenHeight, screenWidth);
     }
-    //DrawRectangleRec(layout.titleBar, OFFWHITE);
+
     DrawLibraryOrQueue(layout);
 
     if (DrawButton(visualizerButtonBounds, "Visualizers", 20) && !visualizerButtonPreviouslyPressed) {
@@ -239,11 +252,41 @@ void DrawUI(Layout layout) {
         visualizerButtonPreviouslyPressed = false;
     }
 
-    if (DrawButton(loginButtonBounds, "Login", 20) && !loginButtonPreviouslyPressed) {
-        loginButtonPreviouslyPressed = true;
-        LoginUser();
-    } else if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-        loginButtonPreviouslyPressed = false;
+    if (DrawButton(loginButtonBounds, "Login", 20) && !loginButtonPreviouslyClicked) {
+        loginButtonPreviouslyClicked = true;
+        inputActive = true;
+    }
+
+    if (inputActive) {
+        DrawRectangleRec(textBoxBounds, textBoxColor);
+        DrawText(username, textBoxBounds.x + 5, textBoxBounds.y + (textBoxBounds.height / 2) - 10, 20, BLACK);
+        
+        int key = GetCharPressed();
+        while (key > 0) {
+            if ((key > 32) && (key <= 125) && (letterCount < 255)) {
+                username[letterCount] = (char)key;
+                username[letterCount + 1] = '\0';
+                letterCount++;
+            }
+            key = GetCharPressed();
+        }
+
+        if (IsKeyPressed(KEY_BACKSPACE) && letterCount > 0) {
+            letterCount--;
+            username[letterCount] = '\0';
+        }
+        if (IsKeyPressed(KEY_ENTER)) {
+            char path[512] = "./business/music/users/aaron";
+            if (processAlbumDirectory(path,"aaron")) {
+                authorizedUser = true;
+                showLibrary = true;
+                printf("Directory processed successfully. Library is drawing.\n");
+            } else {
+                printf("Failed to process directory");
+            }
+            inputActive = false;
+        }
+
     }
 
     DrawVisualizerSelection(&showList, visualizerButtonBounds);
@@ -256,7 +299,7 @@ void DrawUI(Layout layout) {
         int textX = layout.titleBar.x + (layout.titleBar.width - textWidth) / 2;
         int textY = layout.titleBar.y + (layout.titleBar.height - fontSize) / 2;
         DrawText(text, textX, textY, fontSize, CUSTOMDARKGRAY);
-    } else if (!isPlaying) {
+    } else if (!isPlaying && (currentSong == NULL)) {
         const char* text = "Drag and Drop a Song to Start Playing";
         int fontSize = 34;
         int textWidth = MeasureText(text, fontSize);
@@ -268,13 +311,46 @@ void DrawUI(Layout layout) {
     EndDrawing();
 }
 
+void DrawTextBox(Rectangle textBoxBounds, char* text, int maxLength, bool* isActive) {
+    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+        if (CheckCollisionPointRec(GetMousePosition(), textBoxBounds)) {
+            *isActive = true;
+        } else {
+            *isActive = false;
+        }
+    }
+
+    if (*isActive) {
+        int key = GetCharPressed();
+        while (key > 0) {
+            if ((key >= 32) && (key <= 125) && ((int)strlen(text) < maxLength)) {
+                int length = strlen(text);
+                text[length] = (char)key;
+                text[length + 1] = '\0';
+            }
+
+            key = GetCharPressed();
+        }
+        if (IsKeyPressed(KEY_BACKSPACE)) {
+            int length = strlen(text);
+            if (length > 0) {
+                text[length - 1] = '\0';
+            }
+        }
+    }
+
+    DrawRectangleRec(textBoxBounds, *isActive ? LIGHTGRAY : DARKGRAY);
+    DrawText(text, textBoxBounds.x + 5, textBoxBounds.y + 8, 20, BLACK);
+}
+
 void DrawVisualizerSelection(bool *showList, Rectangle buttonBounds) {
-    const char* visualizerNames[] = {"Bar Chart", "Circle", "Circle Star", "Wing", "Kaleidoscope"};
+    const char* visualizerNames[] = {"Bar Chart", "Circle Star", "Wing", "Kaleidoscope"};
     int visualizerCount = ARRAY_LEN(visualizerNames);
     int paddingBetweenButtonAndList = 10;
     int buttonHeight = 30;
 
     if (*showList) {
+        visualizerListOpen = true;
         int listStartY = buttonBounds.y + buttonBounds.height + paddingBetweenButtonAndList;
 
         for (int i = 0; i < visualizerCount; i++) {
@@ -285,32 +361,26 @@ void DrawVisualizerSelection(bool *showList, Rectangle buttonBounds) {
                 *showList = false;
             }
         }
+    } else {
+        visualizerListOpen = false;
     }
 }
 
-void RenderVisualizer(float out_smooth[], size_t m, int centerX, int centerY, Rectangle visualIzerSpace) {
+void RenderVisualizer(float out_smooth[], size_t numberOfFftBins, int centerX, int centerY, Rectangle visualIzerSpace) {
     switch (currentVisualizer) {
         case VISUALIZER_BAR_CHART:
-            barChartVisual(out_smooth, m, visualIzerSpace);
-            break;
-        case VISUALIZER_CIRCLE:
-            circleVisual(out_smooth, m, centerX, centerY);
+            barChartVisual(out_smooth, numberOfFftBins, visualIzerSpace);
             break;
         case VISUALIZER_CIRCLE_STAR:
-            circleStarVisual(out_smooth, m, centerX, centerY);
+            circleStarVisual(out_smooth, numberOfFftBins, centerX, centerY);
             break;
         case VISUALIZER_WING:
-            wingVisual(out_smooth, m, centerX, centerY);
+            wingVisual(out_smooth, numberOfFftBins, centerX, centerY);
             break;
         case VISUALIZER_KALEIDOSCOPE:
-            kaleidoscopeVisual(out_smooth, m, centerX, centerY);
+            kaleidoscopeVisual(out_smooth, numberOfFftBins, centerX, centerY);
             break;
         default:
             break;
     }
-}
-
-void LoginUser() {
-    authorizedUser = true;
-    showLibrary = true;
 }
