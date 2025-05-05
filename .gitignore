@@ -1,0 +1,77 @@
+.clangd
+fft
+fft.c
+fft_notes.md
+fftw-3.3.10/
+sql
+sql.c
+build.sh
+Bragi Beats
+Bragi\ Beats\ Code.zip 
+COSC\ 4460_Class\ Exercise\ 2.docx 
+System\ Design
+notes.md
+fft.c 
+fft_notes.md 
+sql.h 
+bragibeats
+.vscode
+.DS_Store
+Shakey Graves - Heartropolis/
+Men I Trust - Show Me How.wav
+Ross From Friends.wav
+run_tests
+
+### C ###
+# Prerequisites
+*.d
+
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Linker output
+*.ilk
+*.map
+*.exp
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Libraries
+*.lib
+*.a
+*.la
+*.lo
+
+# Shared objects (inc. Windows DLLs)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Kernel Module Compile Results
+*.mod*
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+Mkfile.old
+dkms.conf
